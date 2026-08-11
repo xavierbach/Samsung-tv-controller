@@ -59,6 +59,9 @@ def try_fast_path(manager: TVManager, text: str) -> str | None:
     targets = _find_target(manager, t)
     if targets is None:
         return None
+    # Apple TV-only rooms (no Samsung) need the agent's Apple TV tools
+    if any(tv.cfg.host is None for tv in targets):
+        return None
 
     # power on/off
     m = re.search(r"\b(?:turn|power|switch)\s+(on|off)\b|\b(on|off)\b\s*$", t)

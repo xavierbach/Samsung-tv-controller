@@ -166,6 +166,23 @@ def apple_tv_remote(tv_name: str, command: str) -> str:
 
 
 @beta_tool
+def apple_tv_power(tv_name: str, state: str) -> str:
+    """Turn a room's Apple TV on or off. Via HDMI-CEC this also turns the
+    attached TV on/off — the only power control for Apple TV-only rooms.
+
+    Args:
+        tv_name: Name of the room/TV.
+        state: Either "on" or "off".
+    """
+    try:
+        from . import appletv
+
+        return appletv.power(_atv_host(tv_name), state)
+    except Exception as exc:
+        return f"error: {exc}"
+
+
+@beta_tool
 def now_playing(tv_name: str) -> str:
     """Check what's currently playing on a room's Apple TV (state, title, app).
 
@@ -182,7 +199,7 @@ def now_playing(tv_name: str) -> str:
 
 TOOLS = [
     list_tvs, power, send_key, launch_app, list_apps,
-    play_content, apple_tv_remote, now_playing,
+    play_content, apple_tv_remote, apple_tv_power, now_playing,
     # Server-side web search: resolves "the latest ABC News" into a playable URL
     {"type": "web_search_20260209", "name": "web_search", "max_uses": 5},
 ]
@@ -217,6 +234,10 @@ Routing rules:
   Apple TV.
 - Pause/play/skip on Apple TV rooms go through apple_tv_remote.
 - "Turn off" goes through power (Samsung), which really turns the screen off.
+- Some rooms are Apple TV-only (list_tvs shows power "via apple tv" — e.g. the
+  gym's old Sony): ALL control there goes through the Apple TV tools, with
+  apple_tv_power for on/off (CEC drives the TV) and apple_tv_remote volume_up/
+  volume_down for volume.
 - If the user doesn't name a room and more than one TV exists, call list_tvs
   and ask which one — unless the request clearly targets all of them.
 - If something fails, say what failed in plain words and what you did instead.

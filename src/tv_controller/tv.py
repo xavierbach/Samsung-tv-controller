@@ -49,6 +49,11 @@ class TV:
         return self.cfg.name
 
     def _connect(self) -> SamsungTVWS:
+        if self.cfg.host is None:
+            raise RuntimeError(
+                f"'{self.name}' has no Samsung TV (Apple TV-only room) — "
+                "use the Apple TV tools instead"
+            )
         if self._remote is None:
             self._remote = SamsungTVWS(
                 host=self.cfg.host,
@@ -62,6 +67,8 @@ class TV:
     # -- state ---------------------------------------------------------------
 
     def is_on(self) -> bool:
+        if self.cfg.host is None:
+            return False
         try:
             with urlopen(f"http://{self.cfg.host}:8001/api/v2/", timeout=2) as resp:
                 info = json.loads(resp.read())
@@ -70,6 +77,8 @@ class TV:
             return False
 
     def status(self) -> dict:
+        if self.cfg.host is None:
+            return {"name": self.name, "host": "-", "power": "via apple tv"}
         on = self.is_on()
         return {"name": self.name, "host": self.cfg.host, "power": "on" if on else "off"}
 

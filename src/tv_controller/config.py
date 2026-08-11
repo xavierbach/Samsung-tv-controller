@@ -33,7 +33,7 @@ ATV_CREDENTIALS_FILE = CONFIG_DIR / "appletv.credentials"
 @dataclass
 class TVConfig:
     name: str
-    host: str
+    host: str | None = None  # None = Apple TV-only room (non-Samsung TV, CEC-driven)
     mac: str | None = None
     port: int = 8002  # 8002 = wss (2018+ Tizen TVs); use 8001 for older models
     apple_tv: str | None = None  # IP of the Apple TV plugged into this TV
@@ -56,7 +56,7 @@ class Config:
         for name, entry in (raw.get("tvs") or {}).items():
             tvs[name] = TVConfig(
                 name=name,
-                host=entry["host"],
+                host=entry.get("host"),
                 mac=entry.get("mac"),
                 port=int(entry.get("port", 8002)),
                 apple_tv=entry.get("apple_tv"),
