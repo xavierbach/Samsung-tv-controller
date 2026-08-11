@@ -35,16 +35,19 @@ final class SpeechRecognizer: ObservableObject {
 
         let input = audioEngine.inputNode
         let format = input.outputFormat(forBus: 0)
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+        var bufferCount = 0
+        input.installTap(onBus: 0, bufferSize: 2048, format: format) { [weak self] buffer, _ in
             request.append(buffer)
-            // crude RMS level for the waveform animation
-            if let data = buffer.floatChannelData?[0] {
-                let frames = Int(buffer.frameLength)
-                var sum: Float = 0
-                for i in 0..<frames { sum += data[i] * data[i] }
-                let rms = sqrt(sum / Float(max(frames, 1)))
-                Task { @MainActor in self?.level = min(rms * 12, 1) }
-            }
+            // crude RMS level for the halo animation — throttled so the UI
+            // isn't redrawn on every audio buffer
+            bufferCount += 1
+            guard bufferCount % 3 == 0, let data = buffer.floatChannelData?[0] else { return }
+            let frames = Int(buffer.frameLength)
+            var sum: Float = 0
+            var i = 0
+            while i < frames { sum += data[i] * data[i]; i += 16 }
+            let rms = sqrt(sum / Float(max(frames / 16, 1)))
+            Task { @MainActor in self?.level = min(rms * 12, 1) }
         }
 
         task = recognizer.recognitionTask(with: request) { [weak self] result, _ in
