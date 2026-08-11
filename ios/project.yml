@@ -26,6 +26,7 @@ targets:
     info:
       path: TVRemote/Info.plist
       properties:
+        UILaunchScreen: {}   # declares native-resolution support; without it iOS letterboxes
         NSMicrophoneUsageDescription: Hold-to-talk uses the microphone.
         NSSpeechRecognitionUsageDescription: Your commands are transcribed on this device.
         NSLocalNetworkUsageDescription: Talks to the TV server on your home network.
