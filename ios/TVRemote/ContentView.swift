@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @AppStorage("serverURL") private var serverURLString = "http://macbook.local:8765"
+    @AppStorage("serverURL") private var serverURLString = "http://192.168.1.57:8766"
 
     @StateObject private var speech = SpeechRecognizer()
     @State private var tvs: [TVStatus] = []
