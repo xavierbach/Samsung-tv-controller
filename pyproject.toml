@@ -10,6 +10,7 @@ dependencies = [
     "samsungtvws[async,encrypted]>=2.6.0",
     "wakeonlan>=3.0.0",
     "pyyaml>=6.0",
+    "certifi",
     "fastapi>=0.110",
     "uvicorn>=0.29",
 ]

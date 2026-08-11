@@ -180,14 +180,18 @@ def play_iview_latest(host: str, show_slug: str) -> str:
     through iview's profile picker if it appears.
     """
     import re
+    import ssl
     import time
     from urllib.request import Request, urlopen
+
+    import certifi  # some Python installs (e.g. Homebrew) ship no CA bundle
 
     req = Request(
         f"https://iview.abc.net.au/show/{show_slug}",
         headers={"User-Agent": "Mozilla/5.0"},
     )
-    html = urlopen(req, timeout=10).read().decode(errors="replace")
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    html = urlopen(req, timeout=10, context=ctx).read().decode(errors="replace")
     vids = re.findall(r"/video/([A-Za-z]{2}\d{4}V\d+S\d{2})", html)
     if not vids:
         vids = re.findall(r"/video/([A-Za-z0-9]{8,})", html)
