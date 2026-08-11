@@ -11,6 +11,7 @@
 set -euo pipefail
 
 LABEL="com.tvctl.server"
+PORT="${TVCTL_PORT:-8765}"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LOG_DIR="$HOME/Library/Logs/tvctl"
 CONFIG_DIR="$HOME/.config/samsung-tv-controller"
@@ -45,7 +46,7 @@ cat > "$PLIST" <<EOF
         <string>$TVCTL</string>
         <string>serve</string>
         <string>--host</string><string>0.0.0.0</string>
-        <string>--port</string><string>8765</string>
+        <string>--port</string><string>$PORT</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
@@ -63,7 +64,7 @@ launchctl unload "$PLIST" 2>/dev/null || true
 launchctl load "$PLIST"
 
 echo "Installed and started. Check it:"
-echo "    curl http://localhost:8765/health"
+echo "    curl http://localhost:$PORT/health"
 echo "Logs: $LOG_DIR/server.log"
 echo
 echo "Note: keep the Mac awake for the network — System Settings > Energy >"
