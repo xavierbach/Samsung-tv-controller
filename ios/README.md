@@ -5,10 +5,21 @@ Speech-to-text runs **on-device** (`SFSpeechRecognizer` with
 `requiresOnDeviceRecognition`), so the transcript is ready the moment your
 thumb lifts and the only network hop is one small POST to the Mac.
 
-## Build it (one-time Xcode setup)
+## Build it — fast path (XcodeGen)
 
-The Swift sources live in `TVRemote/`. Xcode project files don't belong in
-git-diff-land, so create the project shell yourself:
+```bash
+brew install xcodegen
+cd ios && xcodegen generate
+open TVRemote.xcodeproj
+```
+
+`project.yml` carries all the Info.plist permission keys, so the only manual
+step left is **Signing & Capabilities → set your Team**, pick your iPhone as
+the destination, and Run. Skip to "Point it at the Mac" below.
+
+## Build it — manual path (no XcodeGen)
+
+The Swift sources live in `TVRemote/`. Create the project shell yourself:
 
 1. Xcode → **File → New → Project → iOS App**
    - Product name: `TVRemote`, Interface: SwiftUI, Language: Swift

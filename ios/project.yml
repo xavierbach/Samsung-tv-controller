@@ -1,0 +1,35 @@
+# XcodeGen spec — generates TVRemote.xcodeproj so you never hand-build the
+# project. On the Mac:
+#
+#     brew install xcodegen
+#     cd ios && xcodegen generate
+#     open TVRemote.xcodeproj
+#
+# Then set your Team under Signing & Capabilities and hit Run.
+name: TVRemote
+options:
+  bundleIdPrefix: com.xavierbach
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  TVRemote:
+    type: application
+    platform: iOS
+    sources: [TVRemote]
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1,2"   # iPhone + iPad
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        SWIFT_VERSION: "5.9"
+    info:
+      path: TVRemote/Info.plist
+      properties:
+        NSMicrophoneUsageDescription: Hold-to-talk uses the microphone.
+        NSSpeechRecognitionUsageDescription: Your commands are transcribed on this device.
+        NSLocalNetworkUsageDescription: Talks to the TV server on your home network.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
