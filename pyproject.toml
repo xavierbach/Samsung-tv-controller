@@ -10,7 +10,12 @@ dependencies = [
     "samsungtvws[async,encrypted]>=2.6.0",
     "wakeonlan>=3.0.0",
     "pyyaml>=6.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
 ]
+
+[project.optional-dependencies]
+appletv = ["pyatv>=0.16"]
 
 [project.scripts]
 tvctl = "tv_controller.cli:main"

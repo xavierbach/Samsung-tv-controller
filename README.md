@@ -1,109 +1,139 @@
 # Samsung TV Super Controller
 
-Control every Samsung TV in your house with natural language.
+Control every TV in your house with natural language — from an iPhone, an
+iPad, or any HomePod in the house.
 
 ```
-you> turn everything off
-All three TVs are now off.
+"I want to watch ABC News in the dining room"
+   → dining room TV turns on, ABC News live stream starts playing
 
-you> put netflix on the living room tv and mute the bedroom one
-Netflix is starting on the living room TV, and the bedroom TV is muted.
+"mute everything"        → ~200ms, no model call
+"pause the bedroom"      → Apple TV pause
 ```
 
-Under the hood it pairs two things:
+## Architecture
 
-- **[samsungtvws](https://github.com/xchwarze/samsung-tv-ws-api)** — talks to
-  Samsung Tizen TVs (2016+) directly over their local WebSocket API: power,
-  volume, key presses, launching apps, opening URLs. No cloud, no SmartThings
-  account.
-- **Claude API tool use** — a small agent that turns whatever you type into the
-  right sequence of TV commands across one or many TVs.
+```
+iPhone/iPad app ─┐  hold-to-talk, on-device speech
+HomePods ────────┼─▶  Mac server (the brain)  ─▶  Samsung TVs   (power, volume, keys)
+Siri Shortcut ───┘    fast path + Claude agent ─▶  Apple TVs     (content deep links)
+                      + web search                 ─ HDMI-CEC turns the TV on
+```
+
+- **Mac server** (`tvctl serve`): every device POSTs natural language here.
+  Reflex commands ("mute", "turn off the bedroom tv") match a deterministic
+  fast path and execute in ~200ms; everything else goes through a Claude
+  tool-use agent that can **web-search for the exact content** ("the latest
+  ABC News" → a live-stream URL) and deep-link it.
+- **Samsung TVs** via [samsungtvws](https://github.com/xchwarze/samsung-tv-ws-api):
+  local WebSocket control — power, volume, key presses, Tizen apps. No cloud.
+- **Apple TVs** (optional, per room) via [pyatv](https://pyatv.dev): the
+  precision layer. Deep links play exact videos/episodes/streams, and
+  HDMI-CEC turns the Samsung on and switches input automatically.
+- **iPhone/iPad app** (`ios/`): SwiftUI hold-to-talk with on-device speech
+  recognition — transcript is ready the instant you release.
+- **HomePods** (`docs/HOMEPOD.md`): a Siri Shortcut relays free-form voice
+  commands from any room.
 
 ## Setup
 
+### 1. The server (on an always-on Mac)
+
 ```bash
+git clone https://github.com/xavierbach/samsung-tv-controller
 cd samsung-tv-controller
-pip install -e .
-export ANTHROPIC_API_KEY=sk-ant-...   # for the natural-language layer
+pip install -e ".[appletv]"
+export ANTHROPIC_API_KEY=sk-ant-...
+
+tvctl discover --save        # find the Samsung TVs (accept the prompt on each)
+tvctl list                   # check they respond
+tvctl serve                  # run it in the foreground first to test
 ```
 
-### 1. Find your TVs
-
-TVs must be on the same network. With the TVs on:
+Try it from another machine on the network:
 
 ```bash
-tvctl discover --save
+curl -X POST http://<mac>.local:8765/command \
+  -H 'Content-Type: application/json' \
+  -d '{"text": "which tvs are on?"}'
 ```
 
-Or add one manually (find the IP in the TV's network settings):
+Then install it permanently:
 
 ```bash
-tvctl add living-room 192.168.1.40 --mac AA:BB:CC:DD:EE:FF
+./scripts/install-macos-server.sh    # launchd: starts at login, restarts on crash
 ```
 
-The `--mac` is optional but recommended — it enables wake-on-LAN so "turn on
-the living room tv" works even when the TV is fully asleep. (Also enable
-*Power On with Mobile* / *IP Remote* in the TV's settings.)
+Give the TVs and Apple TVs **DHCP reservations** in your router — discovery
+flakiness is the #1 source of un-magic.
 
-### 2. Pair
+### 2. Apple TVs (as they arrive)
 
-The first command you send to each TV pops up an **Allow?** prompt on its
-screen. Accept it once; the token is cached locally after that.
+Plug into the Samsung, then from the Mac:
 
 ```bash
-tvctl list          # shows each TV and whether it's on
+tvctl atv-scan                          # find it on the network
+tvctl atv-pair dining-room 192.168.1.50 # PIN appears on the TV; links it to that room
 ```
 
-### 3. Talk to your TVs
+In tvOS Settings enable **HDMI-CEC** (Settings → Remotes and Devices →
+Control TVs and Receivers) so playing content turns the Samsung on. Assign
+the Apple TV to its room in the Home app for native Siri control.
 
-```bash
-tvctl chat                                    # interactive session
-tvctl do "switch the living room tv to hdmi 2"  # one-shot
-tvctl do "volume up a lot on the bedroom tv"
-tvctl do "open youtube everywhere"
-```
+### 3. iPhone / iPad app
 
-## What it can do
+See [`ios/README.md`](ios/README.md) — one-time Xcode setup, then sideload.
 
-| You say | What happens |
+### 4. HomePods
+
+See [`docs/HOMEPOD.md`](docs/HOMEPOD.md) — a five-action Siri Shortcut.
+
+## CLI reference
+
+| Command | What it does |
 |---|---|
-| "turn off all the tvs" | power off every configured TV |
-| "netflix on the living room tv" | launches the Netflix app |
-| "mute everything" | KEY_MUTE to every TV |
-| "louder" / "volume up a lot" | repeated KEY_VOLUP presses |
-| "switch to hdmi 1" | input switching |
-| "open reddit.com on the bedroom tv" | TV web browser |
-| "which tvs are on?" | live power status |
-
-Anything the Samsung remote can do via key codes, the agent can do — it knows
-the full `KEY_*` vocabulary.
+| `tvctl discover --save` | SSDP scan for Samsung TVs, save to config |
+| `tvctl add <name> <ip> --mac <mac>` | add a TV manually (MAC enables wake-on-LAN) |
+| `tvctl list` | TVs, power state, linked Apple TVs |
+| `tvctl serve` | run the home server (port 8765) |
+| `tvctl atv-scan` / `tvctl atv-pair` | find and pair Apple TVs |
+| `tvctl chat` / `tvctl do "..."` | talk to the TVs from the terminal |
 
 ## Configuration
 
-Lives in `~/.config/samsung-tv-controller/tvs.yaml`:
+`~/.config/samsung-tv-controller/tvs.yaml`:
 
 ```yaml
 tvs:
-  living-room:
+  dining-room:
     host: 192.168.1.40
-    mac: "AA:BB:CC:DD:EE:FF"
+    mac: "AA:BB:CC:DD:EE:FF"     # wake-on-LAN
+    apple_tv: 192.168.1.50       # the Apple TV plugged into this TV
   bedroom:
     host: 192.168.1.41
 ```
 
-Environment variables:
+Environment variables: `ANTHROPIC_API_KEY` (required for the agent),
+`TVCTL_MODEL` (default `claude-opus-5`), `TVCTL_CONFIG_DIR`.
 
-- `ANTHROPIC_API_KEY` — required for `chat` / `do`
-- `TVCTL_MODEL` — Claude model to use (default `claude-opus-5`)
-- `TVCTL_CONFIG_DIR` — override the config location
+## What's reliable vs. app-dependent
 
-## Notes & limitations
+- **Reliable:** power, volume, inputs, launching apps, playing exact YouTube
+  videos/live streams and other universal-link content via Apple TV,
+  play/pause/skip.
+- **App-dependent:** deep-linking *inside* apps that don't expose content
+  URLs (some streaming apps only open to their home screen). News and sports
+  route beautifully through official YouTube live streams; the agent does
+  this automatically.
 
-- Works with Samsung **Tizen** TVs (roughly 2016 and newer). Older TVs use a
-  different protocol and port 8001 without TLS (`--port 8001`).
-- Volume is relative (key presses) — Samsung's WebSocket API has no absolute
-  "set volume to 30". Say "volume up a lot" rather than "volume 30".
-- Power off is a toggle key; the controller checks power state first so it
-  never accidentally toggles a TV the wrong way.
-- `discover`, `list`, `add` work without an API key — only the natural-language
-  commands call Claude.
+## Notes
+
+- Samsung Tizen TVs, roughly 2016+. Older models: `--port 8001`.
+- Volume is relative key presses (Samsung's local API has no absolute set).
+- The server binds to your LAN only; nothing is exposed to the internet.
+  For control away from home, put the Mac and phone on a Tailscale tailnet —
+  no config changes needed.
+
+## License
+
+MIT

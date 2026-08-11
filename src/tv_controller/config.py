@@ -6,11 +6,13 @@ TVs are stored in ~/.config/samsung-tv-controller/tvs.yaml:
       living-room:
         host: 192.168.1.40
         mac: "AA:BB:CC:DD:EE:FF"   # optional, needed for wake-on-LAN power on
+        apple_tv: 192.168.1.50     # optional, Apple TV attached to this TV
       bedroom:
         host: 192.168.1.41
 
 Auth tokens issued by each TV (after you accept the on-screen prompt the
-first time) are cached next to the config as <name>.token.
+first time) are cached next to the config as <name>.token. Apple TV pairing
+credentials live in appletv.credentials in the same directory.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ CONFIG_DIR = Path(
     os.environ.get("TVCTL_CONFIG_DIR", Path.home() / ".config" / "samsung-tv-controller")
 )
 CONFIG_FILE = CONFIG_DIR / "tvs.yaml"
+ATV_CREDENTIALS_FILE = CONFIG_DIR / "appletv.credentials"
 
 
 @dataclass
@@ -33,6 +36,7 @@ class TVConfig:
     host: str
     mac: str | None = None
     port: int = 8002  # 8002 = wss (2018+ Tizen TVs); use 8001 for older models
+    apple_tv: str | None = None  # IP of the Apple TV plugged into this TV
 
     @property
     def token_file(self) -> Path:
@@ -55,6 +59,7 @@ class Config:
                 host=entry["host"],
                 mac=entry.get("mac"),
                 port=int(entry.get("port", 8002)),
+                apple_tv=entry.get("apple_tv"),
             )
         return cls(tvs=tvs)
 
@@ -68,6 +73,7 @@ class Config:
                         "host": tv.host,
                         "mac": tv.mac,
                         "port": tv.port if tv.port != 8002 else None,
+                        "apple_tv": tv.apple_tv,
                     }.items()
                     if v is not None
                 }
