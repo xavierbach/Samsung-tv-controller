@@ -166,6 +166,29 @@ def apple_tv_remote(tv_name: str, command: str) -> str:
 
 
 @beta_tool
+def play_abc_iview(tv_name: str, show_slug: str) -> str:
+    """Play the LATEST episode of an ABC iview show on a room's Apple TV.
+    This is THE reliable path for ABC catch-up content (nightly news
+    bulletins, ABC shows). It finds the newest episode, deep-links into the
+    iview app, and handles iview's profile picker automatically.
+
+    Args:
+        tv_name: Name of the room/TV.
+        show_slug: The iview show slug — the last part of
+            iview.abc.net.au/show/<slug>. Known: "abc-news-vic" is the
+            nightly 7pm ABC News Victoria bulletin. Other state bulletins
+            follow the same pattern (abc-news-nsw, abc-news-qld, ...). Use
+            web_search to find a slug you don't know.
+    """
+    try:
+        from . import appletv
+
+        return appletv.play_iview_latest(_atv_host(tv_name), show_slug)
+    except Exception as exc:
+        return f"error: {exc}"
+
+
+@beta_tool
 def apple_tv_power(tv_name: str, state: str) -> str:
     """Turn a room's Apple TV on or off. Via HDMI-CEC this also turns the
     attached TV on/off — the only power control for Apple TV-only rooms.
@@ -199,7 +222,7 @@ def now_playing(tv_name: str) -> str:
 
 TOOLS = [
     list_tvs, power, send_key, launch_app, list_apps,
-    play_content, apple_tv_remote, apple_tv_power, now_playing,
+    play_content, play_abc_iview, apple_tv_remote, apple_tv_power, now_playing,
     # Server-side web search: resolves "the latest ABC News" into a playable URL
     {"type": "web_search_20260209", "name": "web_search", "max_uses": 5},
 ]
@@ -213,14 +236,12 @@ The user is in Australia: "ABC" means the Australian Broadcasting Corporation
 (not the US network). Prefer tv.apple.com/au links and ABC iview content.
 
 Known content shortcuts (use these directly, no web_search needed):
-- ABC News Victoria nightly 7pm bulletin: call play_content with
-  https://tv.apple.com/au/show/abc-news-vic/umc.cmc.snbqs2tgfo1ijch40le29nuc
-  (the TV app opens the show with the latest episode featured), then call
-  apple_tv_remote with "select" to start playback.
+- Any ABC show or nightly news bulletin: play_abc_iview. The nightly 7pm
+  ABC News Victoria bulletin is show_slug "abc-news-vic".
 - ABC News (Australia) 24/7 stream: web_search for the official ABC News
   Australia YouTube live stream and play_content its URL.
-For other nightly shows, the same pattern works: find the tv.apple.com show
-page, open it, then "select" plays the latest episode.
+- Do NOT use tv.apple.com links for playback — they open the TV app but do
+  not route to the episode on this hardware.
 
 Routing rules:
 - To play SPECIFIC content ("watch ABC News", "put on the F1 highlights"):

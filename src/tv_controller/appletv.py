@@ -172,6 +172,53 @@ def now_playing(host: str) -> dict:
     return _run(go())
 
 
+def play_iview_latest(host: str, show_slug: str) -> str:
+    """Play the latest episode of an ABC iview show via the iview:// scheme.
+
+    Scrapes the show page for episode IDs (the tvOS iview app registers the
+    iview:// scheme but not universal links), launches the newest, and clicks
+    through iview's profile picker if it appears.
+    """
+    import re
+    import time
+    from urllib.request import Request, urlopen
+
+    req = Request(
+        f"https://iview.abc.net.au/show/{show_slug}",
+        headers={"User-Agent": "Mozilla/5.0"},
+    )
+    html = urlopen(req, timeout=10).read().decode(errors="replace")
+    vids = re.findall(r"/video/([A-Za-z]{2}\d{4}V\d+S\d{2})", html)
+    if not vids:
+        vids = re.findall(r"/video/([A-Za-z0-9]{8,})", html)
+    if not vids:
+        raise RuntimeError(f"no episodes found for iview show '{show_slug}'")
+
+    def episode_number(v: str) -> int:
+        m = re.search(r"V(\d+)S", v)
+        return int(m.group(1)) if m else -1
+
+    latest = max(dict.fromkeys(vids), key=episode_number)
+    play_url(host, f"iview://video/{latest}")
+
+    # The deep link lands on the episode page with Play focused, but iview may
+    # first interpose its profile selector — a select dismisses each in turn.
+    for _ in range(3):
+        time.sleep(5)
+        st = now_playing(host)
+        if st.get("state") == "DeviceState.Playing":
+            return f"playing '{st.get('title')}' ({latest}) in ABC iview"
+        remote(host, "select")
+    time.sleep(5)
+    st = now_playing(host)
+    if st.get("state") == "DeviceState.Playing":
+        return f"playing '{st.get('title')}' ({latest}) in ABC iview"
+    return (
+        f"opened episode {latest} in ABC iview but playback isn't confirmed "
+        f"(state={st.get('state')}) — the TV may be showing a sign-in or error screen"
+    )
+
+
 def power(host: str, state: str) -> str:
     """Turn the Apple TV (and via CEC, the attached TV) on or off."""
     _require_pyatv()
