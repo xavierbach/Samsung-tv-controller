@@ -15,18 +15,36 @@ ENV_FILE="$CONFIG_DIR/env"
 
 echo "== Samsung TV super controller: Mac setup =="
 
-# 1. Python 3.10+
-PY=""
-for cand in python3.13 python3.12 python3.11 python3.10 python3; do
-    if command -v "$cand" >/dev/null 2>&1 && \
-       "$cand" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)'; then
-        PY="$(command -v "$cand")"
-        break
+# 1. Python 3.10+ (auto-installs via Homebrew if missing)
+find_python() {
+    PY=""
+    for cand in python3.13 python3.12 python3.11 python3.10 python3 \
+                /opt/homebrew/bin/python3.12 /usr/local/bin/python3.12; do
+        if command -v "$cand" >/dev/null 2>&1 && \
+           "$cand" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null; then
+            PY="$(command -v "$cand")"
+            return 0
+        fi
+    done
+    return 1
+}
+if ! find_python; then
+    echo "Python 3.10+ not found — installing it via Homebrew..."
+    BREW=""
+    for cand in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+        [ -x "$cand" ] && BREW="$cand" && break
+    done
+    if [ -z "$BREW" ]; then
+        echo "Installing Homebrew first (it will ask for your Mac password —"
+        echo "typing is invisible, that's normal)..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        for cand in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+            [ -x "$cand" ] && BREW="$cand" && break
+        done
     fi
-done
-if [ -z "$PY" ]; then
-    echo "Python 3.10+ not found. Install it first:  brew install python@3.12" >&2
-    exit 1
+    eval "$("$BREW" shellenv)"
+    brew install python@3.12
+    find_python || { echo "Python install failed — see messages above." >&2; exit 1; }
 fi
 echo "Using $PY"
 

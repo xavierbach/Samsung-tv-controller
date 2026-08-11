@@ -2,42 +2,77 @@
 # ============================================================
 #  PRO — run this on the always-on MacBook PRO (the server).
 #
-#  Double-click to run. If macOS blocks it ("unidentified
-#  developer"), right-click the file > Open > Open.
-#  Or run it from Terminal:  bash ~/Downloads/pro.command
+#  EASIEST WAY TO RUN (avoids macOS security blocks):
+#    1. Open Terminal (Cmd+Space, type Terminal)
+#    2. Type:  bash
+#       then a SPACE, then drag this file into the window
+#    3. Press Enter
+#
+#  Everything is logged to  ~/Desktop/tv-setup-pro.log
 # ============================================================
 set -euo pipefail
+
+LOG="$HOME/Desktop/tv-setup-pro.log"
+exec > >(tee -a "$LOG") 2>&1
+
+on_fail() {
+    code=$?
+    echo
+    echo "**************************************************"
+    echo "***  SOMETHING FAILED (exit code $code)"
+    echo "***  The full log is on your Desktop:"
+    echo "***      tv-setup-pro.log"
+    echo "***  Send that file (or a photo of this window)"
+    echo "***  back to Claude and I'll fix it."
+    echo "**************************************************"
+    read -r -p "Press Enter to close..." _ || true
+}
+trap on_fail ERR
+
 clear
 echo "=================================================="
 echo "  TV super controller — PRO (server) setup"
+echo "  $(date)"
 echo "=================================================="
 echo
 
-# Apple's command-line tools provide git
+echo "[1/4] Checking Apple command-line tools (for git)..."
 if ! xcode-select -p >/dev/null 2>&1; then
-    echo "First: installing Apple's command-line tools."
-    echo "A dialog will pop up — click Install, wait for it to finish,"
-    echo "then double-click this file again."
+    echo "      Not installed. A dialog will pop up — click Install."
+    echo "      (If you don't see it, check behind other windows.)"
     xcode-select --install || true
+    echo "      When that install finishes, run this file again."
     read -r -p "Press Enter to close..." _
     exit 0
 fi
+echo "      OK"
 
+echo "[2/4] Getting the TV controller code..."
 REPO="https://github.com/xavierbach/Samsung-tv-controller"
 DIR="$HOME/samsung-tv-controller"
-
 if [ -d "$DIR/.git" ]; then
-    echo "Updating existing install..."
     git -C "$DIR" pull --ff-only
 else
-    echo "Downloading the TV controller..."
     git clone "$REPO" "$DIR"
 fi
+echo "      OK — $DIR"
 
-# The real work lives in the repo so it stays up to date
+echo "[3/4] Running the main setup (Python, TVs, server)..."
 bash "$DIR/scripts/setup-mac.sh"
 
+echo "[4/4] Checking the server is alive..."
+sleep 2
+if curl -sf http://localhost:8765/health >/dev/null; then
+    echo "      OK — server is running"
+else
+    echo "      Server not answering yet — check the log at"
+    echo "      ~/Library/Logs/tvctl/server.err.log"
+fi
+
 echo
-echo "PRO setup finished. This Mac is now the house brain."
-echo "Server check:  curl http://localhost:8765/health"
+echo "=================================================="
+echo "  SUCCESS — this Mac is now the house brain."
+echo "  Its address for the iPhone app:"
+echo "      http://$(scutil --get LocalHostName 2>/dev/null || hostname).local:8765"
+echo "=================================================="
 read -r -p "Press Enter to close..." _
