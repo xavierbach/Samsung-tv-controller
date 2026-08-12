@@ -274,7 +274,9 @@ class TVAgent:
     def __init__(self, manager: TVManager | None = None):
         global _manager
         _manager = manager or TVManager()
-        self.client = anthropic.Anthropic()
+        # The server holds a global lock while a command runs, so a hung API
+        # call must fail fast rather than wedge every TV in the house.
+        self.client = anthropic.Anthropic(timeout=60.0, max_retries=1)
         self.messages: list = []
 
     def _trim(self) -> None:
@@ -291,33 +293,41 @@ class TVAgent:
 
     def ask(self, user_input: str) -> str:
         """Send one user request through the tool-use loop; returns the reply."""
+        snapshot = list(self.messages)
         self.messages.append({"role": "user", "content": user_input})
         self._trim()
 
         last = None
         restarts = 0
-        while True:
-            runner = self.client.beta.messages.tool_runner(
-                model=MODEL,
-                max_tokens=2048,
-                system=SYSTEM_PROMPT,
-                tools=TOOLS,
-                messages=self.messages,
-            )
-            for message in runner:
-                last = message
-                # Mirror the runner's history so conversation carries across turns
-                self.messages.append({"role": "assistant", "content": message.content})
-                tool_response = runner.generate_tool_call_response()
-                if tool_response is not None:
-                    self.messages.append(tool_response)
-            # Server tools (web_search) can pause the turn; the runner exits on
-            # pause, so restart it with the paused turn in history to resume.
-            if last is None or last.stop_reason != "pause_turn":
-                break
-            restarts += 1
-            if restarts > MAX_PAUSE_RESTARTS:
-                break
+        try:
+            while True:
+                runner = self.client.beta.messages.tool_runner(
+                    model=MODEL,
+                    max_tokens=2048,
+                    system=SYSTEM_PROMPT,
+                    tools=TOOLS,
+                    messages=self.messages,
+                )
+                for message in runner:
+                    last = message
+                    # Mirror the runner's history so conversation carries across turns
+                    self.messages.append({"role": "assistant", "content": message.content})
+                    tool_response = runner.generate_tool_call_response()
+                    if tool_response is not None:
+                        self.messages.append(tool_response)
+                # Server tools (web_search) can pause the turn; the runner exits on
+                # pause, so restart it with the paused turn in history to resume.
+                if last is None or last.stop_reason != "pause_turn":
+                    break
+                restarts += 1
+                if restarts > MAX_PAUSE_RESTARTS:
+                    break
+        except Exception:
+            # A failure mid-loop can leave a tool_use with no tool_result in
+            # history, which would make every later API call fail — drop the
+            # whole turn instead.
+            self.messages[:] = snapshot
+            raise
 
         if last is None:
             return "(no response)"

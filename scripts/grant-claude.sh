@@ -6,7 +6,7 @@
 # Run:  curl -sL <short-url> | bash
 set -u
 
-KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKs8o8KzLk2xIdZS2LVcnQl4Wt8r9TAHR4j0/K2v/xfB claude-session'
+KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJGMhgsu5JRwtNjdkMeriEf7AGs+S0wuIDLBTdZNxL7D claude-session'
 
 echo "== Granting Claude SSH access to this Mac =="
 

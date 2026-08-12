@@ -229,6 +229,12 @@ struct ContentView: View {
             let result = try await client.send(text)
             reply = result.reply
             serverReachable = true
+        } catch let error as URLError where error.code == .timedOut {
+            // The server is up but slow (busy with another command, or a long
+            // agent turn) — reachability hasn't actually changed.
+            reply = "The server is taking a while — try again in a moment."
+        } catch is DecodingError {
+            reply = "The server sent an unexpected reply — is it up to date?"
         } catch {
             reply = "Couldn't reach the house server — are you home?"
             serverReachable = false

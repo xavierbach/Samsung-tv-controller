@@ -15,6 +15,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import logging
 import threading
 
 from fastapi import FastAPI
@@ -24,6 +25,8 @@ from .fastpath import try_fast_path
 from .tv import TVManager
 
 app = FastAPI(title="Samsung TV super controller", version="0.2.0")
+
+log = logging.getLogger("tvctl.server")
 
 _lock = threading.Lock()
 _manager: TVManager | None = None
@@ -67,11 +70,25 @@ def command(cmd: Command) -> Reply:
 
     manager = _get_manager()
 
-    with _lock:  # TVs and agent history are not concurrency-safe
+    # TVs and agent history are not concurrency-safe, so commands run one at
+    # a time — but a request must never queue forever behind a slow agent
+    # turn: better to say we're busy than to look dead.
+    if not _lock.acquire(timeout=15):
+        return Reply(
+            reply="Still working on an earlier command — try again in a moment.",
+            fast_path=True,
+        )
+    try:
         fast = try_fast_path(manager, text)
         if fast is not None:
             return Reply(reply=fast, fast_path=True)
-        reply = _get_agent().ask(text)
+        try:
+            reply = _get_agent().ask(text)
+        except Exception as exc:
+            log.exception("agent failed on %r", text)
+            reply = f"Sorry, that didn't work: {exc}"
+    finally:
+        _lock.release()
     return Reply(reply=reply, fast_path=False)
 
 
