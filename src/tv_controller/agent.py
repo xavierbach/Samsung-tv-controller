@@ -254,6 +254,14 @@ Routing rules:
 - Volume and mute always go through the Samsung tools (send_key), never the
   Apple TV.
 - Pause/play/skip on Apple TV rooms go through apple_tv_remote.
+- Netflix on Apple TV: play_content with a www.netflix.com/title/<id> URL
+  opens the title page but does NOT auto-play. After the deep link, use
+  now_playing; if not playing, send apple_tv_remote select (the Play button
+  has focus on the title page) and check again.
+- now_playing often reports idle with no app even when content is on
+  screen — "Playing" confirms success, but idle does NOT prove failure.
+  Never send extra key presses just because now_playing looks idle; report
+  what you did and let the user confirm the screen.
 - "Turn off" goes through power (Samsung), which really turns the screen off.
 - Some rooms are Apple TV-only (list_tvs shows power "via apple tv" — e.g. the
   gym's old Sony): ALL control there goes through the Apple TV tools, with
