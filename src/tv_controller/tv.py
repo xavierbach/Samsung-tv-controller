@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import time
-from urllib.request import urlopen
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
+from urllib.request import Request, urlopen
 
 from samsungtvws import SamsungTVWS
 from wakeonlan import send_magic_packet
@@ -25,15 +27,16 @@ KEY_CODES = [
     "KEY_NETFLIX", "KEY_AMAZON",
 ]
 
-# App IDs for common Tizen apps (fallbacks when app_list() is unavailable)
+# Candidate app IDs for common Tizen apps, tried in order against the TV's
+# REST API. IDs differ across firmware generations (newer first).
 WELL_KNOWN_APPS = {
-    "netflix": "11101200001",
-    "youtube": "111299001912",
-    "prime video": "3201512006785",
-    "disney+": "3201901017640",
-    "spotify": "3201606009684",
-    "plex": "3201512006963",
-    "apple tv": "3201807016597",
+    "netflix": ["3201907018807", "11101200001"],
+    "youtube": ["111299001912"],
+    "prime video": ["3201910019365", "3201512006785"],
+    "disney+": ["3201901017640"],
+    "spotify": ["3201606009684"],
+    "plex": ["3201512006963"],
+    "apple tv": ["3201807016597"],
 }
 
 
@@ -111,13 +114,36 @@ class TV:
         return "powered off"
 
     def list_apps(self) -> list[dict]:
-        apps = self._connect().app_list() or []
+        # Newer Frame firmware never answers the websocket app-list request,
+        # leaving recv blocked past the library's own timeout — so the call
+        # runs in a worker thread we can abandon.
+        remote = self._connect()
+        pool = ThreadPoolExecutor(max_workers=1)
+        future = pool.submit(remote.app_list)
+        pool.shutdown(wait=False)
+        try:
+            apps = future.result(timeout=8) or []
+        except FutureTimeoutError:
+            self._remote = None  # the abandoned thread still owns that socket
+            raise TimeoutError(
+                "the TV never answered the app list request (newer Samsung "
+                "firmware often doesn't) — use a well-known app name instead"
+            ) from None
         return [{"name": a.get("name"), "app_id": a.get("appId")} for a in apps]
 
+    def _app_exists(self, app_id: str) -> bool:
+        try:
+            url = f"http://{self.cfg.host}:8001/api/v2/applications/{app_id}"
+            with urlopen(url, timeout=3) as resp:
+                return json.loads(resp.read()).get("id") == app_id
+        except Exception:
+            return False
+
     def launch_app(self, app: str) -> str:
-        app_id = app if app.isdigit() else None
-        if app_id is None:
-            wanted = app.lower().strip()
+        wanted = app.lower().strip()
+        candidates = [app] if app.isdigit() else WELL_KNOWN_APPS.get(wanted, [])
+        app_id = next((c for c in candidates if self._app_exists(c)), None)
+        if app_id is None and not app.isdigit():
             try:
                 for entry in self.list_apps():
                     if wanted in (entry["name"] or "").lower():
@@ -125,11 +151,14 @@ class TV:
                         break
             except Exception:
                 pass
-            if app_id is None:
-                app_id = WELL_KNOWN_APPS.get(wanted)
         if app_id is None:
             return f"unknown app '{app}' — try list_apps to see what's installed"
-        self._connect().rest_app_run(app_id)
+        req = Request(
+            f"http://{self.cfg.host}:8001/api/v2/applications/{app_id}",
+            method="POST",
+        )
+        with urlopen(req, timeout=8):
+            pass
         return f"launched {app} ({app_id})"
 
     def open_url(self, url: str) -> str:
