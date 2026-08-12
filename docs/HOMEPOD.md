@@ -11,7 +11,9 @@ iPhone:
 1. New shortcut, name it **TV** (the name is what you'll say).
 2. Add action **Dictate Text**.
 3. Add action **Get Contents of URL**:
-   - URL: `http://<your-mac>.local:8765/command`
+   - URL: `http://<your-mac-ip>:8765/command` — use the Mac's IP rather than
+     a `.local` name (HomePod relays resolve mDNS unreliably), and use the
+     port the server actually runs on (`TVCTL_PORT`; this house runs 8766)
    - Method: **POST**, Request Body: **JSON**
    - Add field: `text` = *Dictated Text* (the magic variable from step 2)
    - Add field: `source` = `homepod`
