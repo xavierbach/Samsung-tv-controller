@@ -55,6 +55,19 @@ def _run(coro):
     return asyncio.run(coro)
 
 
+async def _wake(atv) -> None:
+    """Turn the Apple TV on and wait until it's actually awake — a deep link
+    sent while the box is still asleep is silently dropped."""
+    from pyatv.const import PowerState
+
+    await atv.power.turn_on()
+    for _ in range(20):
+        if atv.power.power_state == PowerState.On:
+            await asyncio.sleep(1)  # let the UI come up before deep-linking
+            return
+        await asyncio.sleep(0.5)
+
+
 # -- public sync API ----------------------------------------------------------
 
 def scan() -> list[dict]:
@@ -111,7 +124,7 @@ def play_url(host: str, url: str) -> str:
     async def go():
         atv = await _connect(host)
         try:
-            await atv.power.turn_on()
+            await _wake(atv)
             await atv.apps.launch_app(url)  # accepts bundle IDs and URLs
             return f"playing {url}"
         finally:
@@ -127,7 +140,7 @@ def launch_app(host: str, bundle_id: str) -> str:
     async def go():
         atv = await _connect(host)
         try:
-            await atv.power.turn_on()
+            await _wake(atv)
             await atv.apps.launch_app(bundle_id)
             return f"launched {bundle_id}"
         finally:
