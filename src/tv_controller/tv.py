@@ -69,21 +69,32 @@ class TV:
 
     # -- state ---------------------------------------------------------------
 
-    def is_on(self) -> bool:
+    def _device_info(self) -> dict:
         if self.cfg.host is None:
-            return False
+            return {}
         try:
             with urlopen(f"http://{self.cfg.host}:8001/api/v2/", timeout=2) as resp:
                 info = json.loads(resp.read())
-            return info.get("device", {}).get("PowerState", "on") == "on"
+            return info.get("device") or {}
         except Exception:
-            return False
+            return {}
+
+    def is_on(self) -> bool:
+        device = self._device_info()
+        return bool(device) and device.get("PowerState", "on") == "on"
 
     def status(self) -> dict:
         if self.cfg.host is None:
-            return {"name": self.name, "host": "-", "power": "via apple tv"}
-        on = self.is_on()
-        return {"name": self.name, "host": self.cfg.host, "power": "on" if on else "off"}
+            return {"name": self.name, "host": "-", "power": "via apple tv", "art_mode": False}
+        device = self._device_info()
+        on = bool(device) and device.get("PowerState", "on") == "on"
+        return {
+            "name": self.name,
+            "host": self.cfg.host,
+            "power": "on" if on else "off",
+            # Frame TVs advertise Art Mode support in their device info
+            "art_mode": device.get("FrameTVSupport") == "true",
+        }
 
     # -- actions -------------------------------------------------------------
 
@@ -164,6 +175,34 @@ class TV:
     def open_url(self, url: str) -> str:
         self._connect().open_browser(url)
         return f"opened {url} in the TV browser"
+
+    def set_artwork(self, image: bytes, file_type: str = "jpg") -> str:
+        """Upload an image to a Frame TV and show it in Art Mode."""
+        if self.cfg.host is None:
+            raise RuntimeError(f"'{self.name}' has no Samsung TV to hang artwork on")
+        # A sleeping Frame won't answer device info or accept the upload
+        # socket, so wake it before judging anything.
+        device = self._device_info()
+        if not device or device.get("PowerState", "on") != "on":
+            self.power_on()
+            for _ in range(20):
+                device = self._device_info()
+                if device and device.get("PowerState", "on") == "on":
+                    break
+                time.sleep(0.5)
+        if not device:
+            raise RuntimeError(f"'{self.name}' isn't answering — is it plugged in?")
+        if device.get("FrameTVSupport") != "true":
+            raise RuntimeError(
+                f"'{self.name}' is not a Frame TV — it can't display Art Mode artwork"
+            )
+        art = self._connect().art()
+        try:
+            content_id = art.upload(image, file_type=file_type, matte="none")
+            art.select_image(content_id)
+        finally:
+            art.close()
+        return f"the artwork is up on the {self.name} TV"
 
 
 class TVManager:

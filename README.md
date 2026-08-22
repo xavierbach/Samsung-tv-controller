@@ -31,7 +31,10 @@ Siri Shortcut ───┘    fast path + Claude agent ─▶  Apple TVs     (co
   precision layer. Deep links play exact videos/episodes/streams, and
   HDMI-CEC turns the Samsung on and switches input automatically.
 - **iPhone/iPad app** (`ios/`): SwiftUI hold-to-talk with on-device speech
-  recognition — transcript is ready the instant you release.
+  recognition — transcript is ready the instant you release. Also sets any
+  photo as **Frame TV artwork**: pick an image, it's smart-cropped to 16:9
+  on-device (Vision saliency keeps the subject in frame), you pick the TV,
+  and it appears in Art Mode.
 - **HomePods** (`docs/HOMEPOD.md`): a Siri Shortcut relays free-form voice
   commands from any room.
 

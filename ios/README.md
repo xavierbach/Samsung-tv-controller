@@ -5,6 +5,12 @@ Speech-to-text runs **on-device** (`SFSpeechRecognizer` with
 `requiresOnDeviceRecognition`), so the transcript is ready the moment your
 thumb lifts and the only network hop is one small POST to the Mac.
 
+There's also a picture-frame button next to the gear: pick any photo and it
+becomes **Frame TV artwork**. The app crops it to 16:9 on-device using
+Vision's attention-based saliency — the crop window slides to keep faces and
+subjects in frame instead of blindly slicing the center — shows you the
+result, asks which TV, and the server uploads it into Art Mode.
+
 ## Build it — fast path (XcodeGen)
 
 ```bash
@@ -25,7 +31,7 @@ The Swift sources live in `TVRemote/`. Create the project shell yourself:
    - Product name: `TVRemote`, Interface: SwiftUI, Language: Swift
    - Save it anywhere (e.g. this `ios/` folder — Xcode makes `TVRemote.xcodeproj`)
 2. Delete the generated `ContentView.swift` / `TVRemoteApp.swift`, then drag
-   the four files from this repo's `TVRemote/` folder into the project
+   the Swift files from this repo's `TVRemote/` folder into the project
    (check "Copy items if needed" **off** so git stays the source of truth).
 3. In the target's **Info** tab, add these keys:
 
