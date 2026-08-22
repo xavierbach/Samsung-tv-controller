@@ -137,6 +137,31 @@ Environment variables: `ANTHROPIC_API_KEY` (required for the agent),
   For control away from home, put the Mac and phone on a Tailscale tailnet —
   no config changes needed.
 
+## Away from home (Tailscale) troubleshooting
+
+Point the app at the Mac's Tailscale address with the **same port** it uses
+at home — `http://100.x.y.z:<port>` or `http://<mac-name>.<tailnet>.ts.net:<port>`.
+If the app says it can't reach the house server:
+
+1. **On the phone**: open the Tailscale app and check the switch at the top
+   actually says **Connected**. iOS tears the tunnel down in the background;
+   a device showing green in the device list does *not* mean your phone's
+   VPN is up. The app now waits up to ~45s for the tunnel to come back, but
+   it can't connect through a VPN that's switched off.
+2. **On the Mac**: `curl http://localhost:<port>/health` → `{"ok":true}`.
+   If that fails, the server isn't running — or it's on a different port
+   than the app expects. The installed port is recorded in
+   `~/.config/samsung-tv-controller/env` (`TVCTL_PORT=...`), and re-running
+   setup now keeps it. Check what launchd actually runs with:
+   `grep -A1 port ~/Library/LaunchAgents/com.tvctl.server.plist`.
+3. **Mac awake?** A sleeping Mac keeps showing "Connected" in Tailscale for
+   a while but drops every request. System Settings → Energy → prevent
+   automatic sleeping (or `sudo pmset -a sleep 0`).
+4. **Cross-check from the Mac itself**: `curl http://<tailscale-ip>:<port>/health`
+   — if localhost works but the Tailscale IP doesn't, the macOS firewall is
+   blocking incoming connections for Python; allow it under System Settings
+   → Network → Firewall → Options.
+
 ## License
 
 MIT

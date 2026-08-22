@@ -20,6 +20,26 @@ struct CommandReply: Decodable {
 final class ServerClient {
     let baseURL: URL
 
+    // Away from home the server is reached over a VPN (Tailscale), and iOS
+    // tears that tunnel down in the background: the first request after the
+    // app wakes has no route yet. waitsForConnectivity holds the request
+    // until the tunnel is back instead of failing instantly; the resource
+    // timeout bounds how long we'll hold on.
+    private static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.waitsForConnectivity = true
+        config.timeoutIntervalForResource = 45
+        return URLSession(configuration: config)
+    }()
+
+    // Artwork uploads are already given 180s; keep their ceiling above that.
+    private static let uploadSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.waitsForConnectivity = true
+        config.timeoutIntervalForResource = 240
+        return URLSession(configuration: config)
+    }()
+
     init(baseURL: URL) {
         self.baseURL = baseURL
     }
@@ -32,12 +52,12 @@ final class ServerClient {
         var body: [String: String] = ["text": text, "source": "iphone"]
         if let room { body["room"] = room }
         request.httpBody = try JSONEncoder().encode(body)
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, _) = try await Self.session.data(for: request)
         return try JSONDecoder().decode(CommandReply.self, from: data)
     }
 
     func status() async throws -> [TVStatus] {
-        let (data, _) = try await URLSession.shared.data(
+        let (data, _) = try await Self.session.data(
             from: baseURL.appending(path: "status"))
         return try JSONDecoder().decode([TVStatus].self, from: data)
     }
@@ -62,7 +82,7 @@ final class ServerClient {
         body.append(jpeg)
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
 
-        let (data, _) = try await URLSession.shared.upload(for: request, from: body)
+        let (data, _) = try await Self.uploadSession.upload(for: request, from: body)
         return try JSONDecoder().decode(CommandReply.self, from: data)
     }
 }

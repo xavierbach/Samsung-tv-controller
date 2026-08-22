@@ -62,7 +62,10 @@ bash "$DIR/scripts/setup-mac.sh"
 
 echo "[4/4] Checking the server is alive..."
 sleep 2
-if curl -sf http://localhost:8765/health >/dev/null; then
+# The port the server was actually installed with (setup records it here).
+PORT="$(sed -n 's/^TVCTL_PORT=//p' "$HOME/.config/samsung-tv-controller/env" 2>/dev/null | head -1 || true)"
+PORT="${PORT:-8765}"
+if curl -sf "http://localhost:$PORT/health" >/dev/null; then
     echo "      OK — server is running"
 else
     echo "      Server not answering yet — check the log at"
@@ -73,6 +76,6 @@ echo
 echo "=================================================="
 echo "  SUCCESS — this Mac is now the house brain."
 echo "  Its address for the iPhone app:"
-echo "      http://$(scutil --get LocalHostName 2>/dev/null || hostname).local:8765"
+echo "      http://$(scutil --get LocalHostName 2>/dev/null || hostname).local:$PORT"
 echo "=================================================="
 read -r -p "Press Enter to close..." _

@@ -11,11 +11,21 @@
 set -euo pipefail
 
 LABEL="com.tvctl.server"
-PORT="${TVCTL_PORT:-8765}"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LOG_DIR="$HOME/Library/Logs/tvctl"
 CONFIG_DIR="$HOME/.config/samsung-tv-controller"
 ENV_FILE="$CONFIG_DIR/env"
+
+# Port: an explicit TVCTL_PORT wins, else whatever this Mac was installed
+# with last time (recorded in the env file), else the default. Without the
+# env-file fallback a re-run of setup-mac.sh silently moved a custom port
+# back to 8765 — and every phone/HomePod pointing at the old port saw a
+# dead server.
+PORT="${TVCTL_PORT:-}"
+if [ -z "$PORT" ] && [ -f "$ENV_FILE" ]; then
+    PORT="$(sed -n 's/^TVCTL_PORT=//p' "$ENV_FILE" | head -1)"
+fi
+PORT="${PORT:-8765}"
 
 TVCTL="$(command -v tvctl || true)"
 if [ -z "$TVCTL" ]; then
@@ -33,6 +43,15 @@ if [ -z "$API_KEY" ]; then
 fi
 
 mkdir -p "$LOG_DIR" "$CONFIG_DIR" "$(dirname "$PLIST")"
+
+# Remember the port so the next re-run keeps it.
+touch "$ENV_FILE"
+if grep -q '^TVCTL_PORT=' "$ENV_FILE"; then
+    sed -i '' "s/^TVCTL_PORT=.*/TVCTL_PORT=$PORT/" "$ENV_FILE"
+else
+    printf 'TVCTL_PORT=%s\n' "$PORT" >> "$ENV_FILE"
+fi
+chmod 600 "$ENV_FILE"
 
 cat > "$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>

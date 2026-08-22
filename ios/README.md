@@ -41,6 +41,7 @@ The Swift sources live in `TVRemote/`. Create the project shell yourself:
    | `NSSpeechRecognitionUsageDescription` | "Your commands are transcribed on this device." |
    | `NSLocalNetworkUsageDescription` | "Talks to the TV server on your home network." |
    | `App Transport Security Settings` → `NSAllowsLocalNetworking` | `YES` (the server is plain http on your LAN) |
+   | `App Transport Security Settings` → `Exception Domains` → `ts.net` | `NSIncludesSubdomains` = `YES`, `NSExceptionAllowsInsecureHTTPLoads` = `YES` (lets Tailscale MagicDNS names work away from home) |
 
 4. **Signing & Capabilities** → set your Team (your Apple ID) and a unique
    bundle ID like `com.yourname.tvremote`.
@@ -53,8 +54,14 @@ Repeat step 5 with the iPad selected — same app, the grid adapts.
 ## Point it at the Mac
 
 Open the app's settings (gear icon) and set the server URL —
-`http://<your-macbook-name>.local:8765` (find the name in macOS System
-Settings → General → Sharing → Local hostname), or the Mac's IP.
+`http://<your-macbook-name>.local:<port>` (find the name in macOS System
+Settings → General → Sharing → Local hostname), or the Mac's IP. The PRO
+setup script prints the exact address, port included, when it finishes.
+
+**Away from home:** use the Mac's Tailscale IP or MagicDNS name with the
+same port (e.g. `http://100.x.y.z:8766`), and make sure the Tailscale app
+on the phone says **Connected** — iOS drops the tunnel in the background.
+See the Tailscale troubleshooting section in the main README.
 
 ## Sideloading refresher
 

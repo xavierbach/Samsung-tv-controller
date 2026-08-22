@@ -102,8 +102,9 @@ echo "     > Signing & Capabilities > Team > add/select your Apple ID."
 echo "  3. In the toolbar device menu (top centre), pick your iPhone."
 echo "  4. Press the Play button. First run only: on the iPhone go to"
 echo "     Settings > General > VPN & Device Management > trust the cert."
-echo "  5. In the app, tap the gear and set the server address shown"
-echo "     at the end of the PRO setup (http://....local:8765)."
+echo "  5. In the app, tap the gear and set the server address printed"
+echo "     at the end of the PRO setup (http://....local:<port> — the"
+echo "     PRO script prints the exact port it installed with)."
 echo
 echo "  Repeat steps 3-4 with your iPad to install it there too."
 read -r -p "Press Enter to close..." _

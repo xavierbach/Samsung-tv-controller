@@ -16,7 +16,10 @@ struct ContentView: View {
     @State private var croppingArt = false
 
     private var client: ServerClient? {
-        URL(string: serverURLString).map(ServerClient.init)
+        // Pasted addresses often carry an invisible trailing space/newline,
+        // which is enough to make URL(string:) misparse the host.
+        let trimmed = serverURLString.trimmingCharacters(in: .whitespacesAndNewlines)
+        return URL(string: trimmed).map(ServerClient.init)
     }
 
     var body: some View {
@@ -263,8 +266,15 @@ struct ContentView: View {
             reply = "The server is taking a while — try again in a moment."
         } catch is DecodingError {
             reply = "The server sent an unexpected reply — is it up to date?"
+        } catch let error as URLError where error.code == .cannotConnectToHost {
+            // The Mac answered the network but nothing accepted the port:
+            // the server isn't running, or it's listening on a different port.
+            reply = "Found the Mac, but no server answered on that port — "
+                + "check the server is running and the port in Settings matches it."
+            serverReachable = false
         } catch {
-            reply = "Couldn't reach the house server — are you home?"
+            reply = "Couldn't reach the house server — if you're away from home, "
+                + "check Tailscale says Connected."
             serverReachable = false
         }
         await refreshStatus()

@@ -32,6 +32,13 @@ targets:
         NSLocalNetworkUsageDescription: Talks to the TV server on your home network.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+          # The server is plain http. ATS already lets raw IPs through, but
+          # blocks http to real hostnames — this allows Tailscale MagicDNS
+          # names (xxx.tailXXXX.ts.net) so the app works away from home.
+          NSExceptionDomains:
+            ts.net:
+              NSIncludesSubdomains: true
+              NSExceptionAllowsInsecureHTTPLoads: true
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
