@@ -12,6 +12,7 @@ dependencies = [
     "pyyaml>=6.0",
     "certifi",
     "fastapi>=0.110",
+    "python-multipart>=0.0.9",  # multipart uploads for POST /artwork
     "uvicorn>=0.29",
 ]
 

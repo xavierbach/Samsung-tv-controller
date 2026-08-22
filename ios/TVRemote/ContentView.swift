@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 struct ContentView: View {
@@ -10,6 +11,9 @@ struct ContentView: View {
     @State private var busy = false
     @State private var showSettings = false
     @State private var serverReachable = true
+    @State private var artPickerItem: PhotosPickerItem?
+    @State private var artCandidate: ArtworkImage?
+    @State private var croppingArt = false
 
     private var client: ServerClient? {
         URL(string: serverURLString).map(ServerClient.init)
@@ -40,6 +44,12 @@ struct ContentView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showSettings) { settings }
+            .sheet(item: $artCandidate) { artwork in
+                ArtworkSheet(artwork: artwork, tvs: tvs, client: client) { result in
+                    reply = result
+                }
+                .presentationDetents([.large])
+            }
         }
         .task {
             speech.requestPermissions()
@@ -47,6 +57,10 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await refreshStatus() } }
+        }
+        .onChange(of: artPickerItem) { _, item in
+            guard let item else { return }
+            Task { await prepareArtwork(from: item) }
         }
     }
 
@@ -75,6 +89,20 @@ struct ContentView: View {
                     .foregroundStyle(.white.opacity(0.55))
             }
             Spacer()
+            PhotosPicker(selection: $artPickerItem, matching: .images) {
+                Group {
+                    if croppingArt {
+                        ProgressView().tint(.white.opacity(0.7))
+                    } else {
+                        Image(systemName: "photo.artframe")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                }
+                .frame(width: 40, height: 40)
+                .background(.white.opacity(0.08), in: Circle())
+            }
+            .disabled(croppingArt)
             Button {
                 showSettings = true
             } label: {
@@ -240,6 +268,30 @@ struct ContentView: View {
             serverReachable = false
         }
         await refreshStatus()
+    }
+
+    private func prepareArtwork(from item: PhotosPickerItem) async {
+        croppingArt = true
+        defer {
+            croppingArt = false
+            artPickerItem = nil
+        }
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data)
+        else {
+            reply = "Couldn't read that photo — try another one."
+            return
+        }
+        // Saliency + cropping a full-res photo is heavy; keep it off the UI.
+        let artwork = await Task.detached(priority: .userInitiated) {
+            SmartCropper.artwork(from: image)
+        }.value
+        guard let artwork else {
+            reply = "Couldn't prepare that photo — try another one."
+            return
+        }
+        await refreshStatus()  // fresh art_mode flags before we ask which TV
+        artCandidate = artwork
     }
 
     private func refreshStatus() async {

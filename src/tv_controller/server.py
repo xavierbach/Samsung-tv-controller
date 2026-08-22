@@ -9,7 +9,8 @@ everything else goes through the Claude agent.
 
 Endpoints:
     POST /command   {"text": "mute the bedroom tv", "room": "dining-room"?}
-    GET  /status    power state of every TV
+    POST /artwork   multipart: tv=<name>, image=<jpeg/png> — Frame TV Art Mode
+    GET  /status    power state (and Art Mode support) of every TV
     GET  /health    liveness probe
 """
 
@@ -18,7 +19,7 @@ from __future__ import annotations
 import logging
 import threading
 
-from fastapi import FastAPI
+from fastapi import FastAPI, File, Form, UploadFile
 from pydantic import BaseModel
 
 from .fastpath import try_fast_path
@@ -90,6 +91,28 @@ def command(cmd: Command) -> Reply:
     finally:
         _lock.release()
     return Reply(reply=reply, fast_path=False)
+
+
+@app.post("/artwork", response_model=Reply)
+def artwork(tv: str = Form(...), image: UploadFile = File(...)) -> Reply:
+    data = image.file.read()
+    file_type = "png" if (image.content_type or "").endswith("png") else "jpg"
+
+    # Uploading to the Frame takes a while; same one-at-a-time rule as /command.
+    if not _lock.acquire(timeout=15):
+        return Reply(
+            reply="Still working on an earlier command — try again in a moment.",
+            fast_path=True,
+        )
+    try:
+        try:
+            reply = _get_manager().get(tv).set_artwork(data, file_type=file_type)
+        except Exception as exc:
+            log.exception("artwork upload failed for %r", tv)
+            reply = f"Couldn't set the artwork: {exc}"
+    finally:
+        _lock.release()
+    return Reply(reply=reply, fast_path=True)
 
 
 @app.get("/status")
