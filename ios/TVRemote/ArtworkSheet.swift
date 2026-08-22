@@ -13,12 +13,10 @@ struct ArtworkSheet: View {
     @State private var sendingTo: String?
 
     private var frameTVs: [TVStatus] {
-        let frames = tvs.filter(\.supportsArtMode)
-        if !frames.isEmpty { return frames }
-        // A deeply asleep Frame doesn't answer the art-mode probe, so the
-        // flags can all be false. Offer every Samsung TV and let the server
-        // wake the chosen one and check for real.
-        return tvs.filter { $0.host != "-" }
+        // A deeply asleep Frame doesn't answer the art-mode probe, so only an
+        // awake TV reporting false is definitely not a Frame. Sleeping TVs
+        // stay pickable — the server wakes the chosen one and checks for real.
+        tvs.filter { $0.host != "-" && ($0.supportsArtMode || $0.power != "on") }
     }
 
     var body: some View {
