@@ -407,6 +407,13 @@ struct RoomCard: View {
             .capitalized
     }
 
+    private var subtitle: String {
+        if isAppleTVRoom { return "Apple TV" }
+        // A Samsung room with an Apple TV behind it: the tile is still the
+        // Samsung, but advertise the precision layer.
+        return (isOn ? "On" : "Off") + (tv.apple_tv ? " · Apple TV" : "")
+    }
+
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 10) {
@@ -425,7 +432,7 @@ struct RoomCard: View {
                         .font(.system(.callout, design: .rounded).weight(.semibold))
                         .foregroundStyle(.white)
                         .lineLimit(1)
-                    Text(isAppleTVRoom ? "Apple TV" : (isOn ? "On" : "Off"))
+                    Text(subtitle)
                         .font(.system(.caption, design: .rounded))
                         .foregroundStyle(.white.opacity(0.5))
                 }
