@@ -14,6 +14,8 @@ struct ContentView: View {
     @State private var artPickerItem: PhotosPickerItem?
     @State private var artCandidate: ArtworkImage?
     @State private var croppingArt = false
+    @State private var connectionTest: String?
+    @State private var testingConnection = false
 
     private var client: ServerClient? {
         // Pasted addresses often carry an invisible trailing space/newline,
@@ -240,11 +242,85 @@ struct ContentView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
+                Section {
+                    Button {
+                        Task { await testConnection() }
+                    } label: {
+                        if testingConnection {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                Text("Testing…")
+                            }
+                        } else {
+                            Text("Test connection")
+                        }
+                    }
+                    .disabled(testingConnection)
+                    if let connectionTest {
+                        Text(connectionTest)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                } footer: {
+                    Text("Away from home the address must be the Mac's Tailscale "
+                        + "IP or …ts.net name, and Tailscale must say Connected "
+                        + "on this phone.")
+                }
             }
             .navigationTitle("Settings")
             .toolbar { Button("Done") { showSettings = false } }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
+    }
+
+    private func testConnection() async {
+        guard let client else {
+            connectionTest = "✗ That's not a valid URL — it should look like "
+                + "http://100.106.18.20:8766 (no spaces)."
+            return
+        }
+        testingConnection = true
+        defer { testingConnection = false }
+        do {
+            if try await client.health() {
+                connectionTest = "✓ The server is answering at \(client.baseURL.absoluteString)."
+                serverReachable = true
+                await refreshStatus()
+            } else {
+                connectionTest = "✗ Something answered there, but it isn't the TV "
+                    + "server — double-check the address and port."
+            }
+        } catch let error as URLError {
+            connectionTest = Self.explain(error, host: client.baseURL.host() ?? "the Mac")
+        } catch {
+            connectionTest = "✗ \(error.localizedDescription)"
+        }
+    }
+
+    private static func explain(_ error: URLError, host: String) -> String {
+        switch error.code {
+        case .cannotConnectToHost:
+            return "✗ Reached \(host), but nothing is listening on that port. "
+                + "On the Mac, run: curl http://localhost:<port>/health — the "
+                + "server is down, or running on a different port."
+        case .timedOut:
+            return "✗ No answer from \(host) at all. The Mac is asleep, or the "
+                + "Tailscale tunnel isn't up — open Tailscale on this phone and "
+                + "check the switch says Connected."
+        case .cannotFindHost, .dnsLookupFailed:
+            return "✗ Couldn't look up \(host). For a ….ts.net name, Tailscale "
+                + "must be connected on this phone."
+        case .notConnectedToInternet, .networkConnectionLost:
+            return "✗ This phone has no network route to \(host) — check "
+                + "Wi‑Fi/cellular, and that Tailscale says Connected."
+        case .appTransportSecurityRequiresSecureConnection:
+            return "✗ iOS blocked plain http to \(host) — rebuild the app from "
+                + "the latest code (it allows …ts.net names) or use the "
+                + "Tailscale IP instead of a hostname."
+        default:
+            return "✗ \(error.localizedDescription) (URLError \(error.code.rawValue))"
+        }
     }
 
     // MARK: actions

@@ -40,8 +40,29 @@ final class ServerClient {
         return URLSession(configuration: config)
     }()
 
+    // For the Settings connection test: fail fast and honestly — no
+    // connectivity wait — so the error code says what's actually wrong.
+    private static let probeSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.waitsForConnectivity = false
+        config.timeoutIntervalForRequest = 5
+        config.timeoutIntervalForResource = 8
+        return URLSession(configuration: config)
+    }()
+
     init(baseURL: URL) {
         self.baseURL = baseURL
+    }
+
+    /// Probe /health. True = our server answered; false = something else
+    /// answered HTTP there. Connection-level failures throw URLError.
+    func health() async throws -> Bool {
+        struct Health: Decodable { let ok: Bool }
+        var request = URLRequest(url: baseURL.appending(path: "health"))
+        request.timeoutInterval = 5
+        let (data, response) = try await Self.probeSession.data(for: request)
+        return (response as? HTTPURLResponse)?.statusCode == 200
+            && (try? JSONDecoder().decode(Health.self, from: data))?.ok == true
     }
 
     func send(_ text: String, room: String? = nil) async throws -> CommandReply {
