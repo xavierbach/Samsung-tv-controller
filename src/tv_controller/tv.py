@@ -10,8 +10,25 @@ from urllib.request import Request, urlopen
 
 from samsungtvws import SamsungTVWS
 from wakeonlan import send_magic_packet
+from websocket import WebSocketConnectionClosedException
 
 from .config import Config, TVConfig
+
+# Errors that mean the cached websocket is dead (the TV closed it while
+# sleeping, flipping to Art Mode, or idling) rather than the command
+# failing — safe to reconnect and resend. A timeout is NOT in this list:
+# the key may have been delivered, and resending would toggle twice.
+DEAD_SOCKET_ERRORS = (
+    BrokenPipeError,
+    ConnectionResetError,
+    ConnectionAbortedError,
+    WebSocketConnectionClosedException,
+)
+
+# Reuse a cached connection only this recently after its last command.
+# TVs drop idle remote sockets without a FIN we notice; the first write to
+# a half-dead socket "succeeds" and the key silently vanishes.
+CONNECTION_MAX_IDLE = 60.0
 
 # Common remote key codes the model can send. Any KEY_* code the TV supports
 # also works; this list is what we advertise in the tool description.
@@ -46,10 +63,19 @@ class TV:
     def __init__(self, cfg: TVConfig):
         self.cfg = cfg
         self._remote: SamsungTVWS | None = None
+        self._last_used = 0.0  # monotonic time of the last use of _remote
 
     @property
     def name(self) -> str:
         return self.cfg.name
+
+    def _drop_remote(self) -> None:
+        if self._remote is not None:
+            try:
+                self._remote.close()
+            except Exception:
+                pass
+            self._remote = None
 
     def _connect(self) -> SamsungTVWS:
         if self.cfg.host is None:
@@ -57,6 +83,11 @@ class TV:
                 f"'{self.name}' has no Samsung TV (Apple TV-only room) — "
                 "use the Apple TV tools instead"
             )
+        if (
+            self._remote is not None
+            and time.monotonic() - self._last_used > CONNECTION_MAX_IDLE
+        ):
+            self._drop_remote()
         if self._remote is None:
             # The timeout also bounds the first-connect approval: the TV shows
             # an Allow prompt and only sends the auth token once the user
@@ -69,6 +100,7 @@ class TV:
                 name="samsung-tv-controller",
                 timeout=30,
             )
+        self._last_used = time.monotonic()
         return self._remote
 
     # -- state ---------------------------------------------------------------
@@ -172,9 +204,12 @@ class TV:
         return f"connected to {self.name} (this model didn't need a token)"
 
     def send_key(self, key: str, repeat: int = 1) -> None:
-        remote = self._connect()
         for _ in range(repeat):
-            remote.send_key(key)
+            try:
+                self._connect().send_key(key)
+            except DEAD_SOCKET_ERRORS:
+                self._drop_remote()
+                self._connect().send_key(key)
             time.sleep(0.15)
 
     def power_on(self) -> str:
@@ -215,6 +250,7 @@ class TV:
             if self._art_mode_on():
                 return "already showing art"
             self.send_key("KEY_POWER")
+            self._remote = None  # the art-mode flip drops the socket too
             return "switched to art mode"
         self.send_key("KEY_POWER")
         self._remote = None  # connection drops when the TV sleeps
@@ -308,7 +344,11 @@ class TV:
         return f"launched {app} ({app_id})"
 
     def open_url(self, url: str) -> str:
-        self._connect().open_browser(url)
+        try:
+            self._connect().open_browser(url)
+        except DEAD_SOCKET_ERRORS:
+            self._drop_remote()
+            self._connect().open_browser(url)
         return f"opened {url} in the TV browser"
 
     def set_artwork(self, image: bytes, file_type: str = "jpg") -> str:
