@@ -31,10 +31,13 @@ Siri Shortcut ───┘    fast path + Claude agent ─▶  Apple TVs     (co
   precision layer. Deep links play exact videos/episodes/streams, and
   HDMI-CEC turns the Samsung on and switches input automatically.
 - **iPhone/iPad app** (`ios/`): SwiftUI hold-to-talk with on-device speech
-  recognition — transcript is ready the instant you release. Also sets any
-  photo as **Frame TV artwork**: pick an image, it's smart-cropped to 16:9
-  on-device (Vision saliency keeps the subject in frame), you pick the TV,
-  and it appears in Art Mode.
+  recognition — transcript is ready the instant you release. Its hero
+  feature is the **Art Studio**: describe artwork in words (optionally with
+  a style and a reference photo) and the server paints it with AI —
+  Gemini's image model, native 16:9 — preview it, and hang it on a Frame's
+  Art Mode. Or pick any photo: it's smart-cropped to 16:9 on-device (Vision
+  saliency keeps the subject in frame) and hung the same way. Voice works
+  too: "paint a watercolor of the sea in the dining room".
 - **HomePods** (`docs/HOMEPOD.md`): a Siri Shortcut relays free-form voice
   commands from any room.
 
@@ -117,7 +120,11 @@ tvs:
 ```
 
 Environment variables: `ANTHROPIC_API_KEY` (required for the agent),
-`TVCTL_MODEL` (default `claude-opus-5`), `TVCTL_CONFIG_DIR`.
+`GEMINI_API_KEY` (required for AI artwork — create one at
+https://aistudio.google.com/apikey and add
+`GEMINI_API_KEY=...` to `~/.config/samsung-tv-controller/env`, then restart
+the server), `TVCTL_MODEL` (default `claude-opus-5`), `TVCTL_IMAGE_MODEL`
+(default `gemini-2.5-flash-image`), `TVCTL_CONFIG_DIR`.
 
 ## What's reliable vs. app-dependent
 

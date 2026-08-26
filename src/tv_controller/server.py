@@ -8,8 +8,10 @@ everything else goes through the Claude agent.
     tvctl serve --host 0.0.0.0 --port 8765
 
 Endpoints:
-    POST /command   {"text": "mute the bedroom tv", "room": "dining-room"?}
-    POST /artwork   multipart: tv=<name>, image=<jpeg/png> — Frame TV Art Mode
+    POST /command       {"text": "mute the bedroom tv", "room": "dining-room"?}
+    POST /artwork       multipart: tv=<name>, image=<jpeg/png> — Frame TV Art Mode
+    POST /generate-art  multipart: prompt=<text>, image=<reference photo>? —
+                        AI-generated 16:9 artwork, returned base64 for preview
     POST /discover  scan the LAN for Samsung TVs, merge into the config
     POST /authorize {"tv": "office-frame"} — pop that TV's Allow prompt
     GET  /status    power state (art mode, approval) of every TV
@@ -18,6 +20,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import base64
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -116,6 +119,39 @@ def artwork(tv: str = Form(...), image: UploadFile = File(...)) -> Reply:
     finally:
         _lock.release()
     return Reply(reply=reply, fast_path=True)
+
+
+class ArtReply(BaseModel):
+    reply: str
+    fast_path: bool = True
+    image_b64: str | None = None  # base64 image on success, absent on failure
+    mime: str | None = None
+
+
+@app.post("/generate-art", response_model=ArtReply)
+def generate_art(
+    prompt: str = Form(...),
+    image: UploadFile | None = File(default=None),
+) -> ArtReply:
+    """Generate 16:9 AI artwork from a text prompt (plus an optional reference
+    photo). Returns the image for in-app preview; hanging it on a TV goes
+    through the existing POST /artwork. Generation touches no TV sockets, so
+    it deliberately runs OUTSIDE the command lock — a 20s render must never
+    block "mute the tv"."""
+    from . import imagegen
+
+    reference = image.file.read() if image is not None else None
+    reference_mime = (image.content_type or "image/jpeg") if image is not None else "image/jpeg"
+    try:
+        data, mime = imagegen.generate(prompt, reference, reference_mime)
+    except Exception as exc:
+        log.exception("art generation failed for %r", prompt)
+        return ArtReply(reply=f"Couldn't create the artwork: {exc}")
+    return ArtReply(
+        reply="Here's your artwork.",
+        image_b64=base64.b64encode(data).decode(),
+        mime=mime,
+    )
 
 
 class AuthorizeCmd(BaseModel):
