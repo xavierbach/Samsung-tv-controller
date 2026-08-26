@@ -20,14 +20,19 @@ def cmd_discover(args: argparse.Namespace) -> int:
 
     config = Config.load()
     for tv in found:
-        print(f"  {tv.friendly_name}  ({tv.host}{', ' + tv.model if tv.model else ''})")
+        extras = ", ".join(x for x in (tv.model, tv.mac) if x)
+        print(f"  {tv.friendly_name}  ({tv.host}{', ' + extras if extras else ''})")
         if args.save:
             name = tv.friendly_name.lower().replace(" ", "-")
-            config.add(TVConfig(name=name, host=tv.host))
+            config.add(TVConfig(name=name, host=tv.host, mac=tv.mac))
     if args.save:
         config.save()
-        print(f"\nSaved {len(found)} TV(s) to config. Add each TV's MAC address to the "
-              "config file to enable wake-on-LAN power on.")
+        missing = [tv.friendly_name for tv in found if not tv.mac]
+        print(f"\nSaved {len(found)} TV(s) to config, with wake-on-LAN MACs where "
+              "the TV reported one.")
+        if missing:
+            print("No MAC reported by: " + ", ".join(missing) + " — add those to "
+                  "the config file by hand for reliable power on.")
     else:
         print("\nRe-run with --save to add these TVs to your config.")
     return 0

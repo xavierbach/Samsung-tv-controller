@@ -21,6 +21,7 @@ class DiscoveredTV:
     host: str
     friendly_name: str
     model: str | None = None
+    mac: str | None = None  # for wake-on-LAN; the TV reports it itself
 
 
 def _ssdp_search(st: str, timeout: float = 3.0) -> set[str]:
@@ -65,7 +66,12 @@ def _device_info(host: str) -> DiscoveredTV:
         name = device.get("name") or f"samsung-tv-{host}"
         # Strip the "[TV] " prefix Samsung puts on names
         name = re.sub(r"^\[TV\]\s*", "", name)
-        return DiscoveredTV(host=host, friendly_name=name, model=device.get("modelName"))
+        return DiscoveredTV(
+            host=host,
+            friendly_name=name,
+            model=device.get("modelName"),
+            mac=device.get("wifiMac"),
+        )
     except Exception:
         return DiscoveredTV(host=host, friendly_name=f"samsung-tv-{host}")
 
