@@ -183,12 +183,18 @@ class TV:
         if self.cfg.mac:
             send_magic_packet(self.cfg.mac)
             return "sent wake-on-LAN packet"
-        # No MAC configured: KEY_POWER only works if the TV's network stack is awake
+        # No MAC configured: KEY_POWER only works if the TV's network stack is
+        # awake. Failures are prefixed "error:" so the fast path reports them
+        # instead of summarizing a dead TV as done.
         try:
             self.send_key("KEY_POWER")
-            return "sent KEY_POWER (configure the TV's MAC for reliable wake)"
+            return "sent KEY_POWER (no MAC on file — run a TV scan for reliable wake)"
         except Exception as exc:
-            return f"could not wake TV (no MAC configured for wake-on-LAN): {exc}"
+            return (
+                "error: could not wake the TV — it has no MAC on file for "
+                f"wake-on-LAN and isn't answering network commands ({exc}). "
+                "Turn it on once and run a TV scan to record its MAC."
+            )
 
     def power_off(self) -> str:
         device = self._device_info()
