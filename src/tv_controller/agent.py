@@ -215,6 +215,24 @@ def play_abc_iview(tv_name: str, show_slug: str) -> str:
 
 
 @beta_tool
+def apple_tv_apps(tv_name: str) -> str:
+    """List the apps installed on a room's Apple TV (name + bundle id).
+    Check this BEFORE deep-linking into a subscription app — a deep link
+    into an app that isn't installed fails silently. To open an installed
+    app, pass its bundle id to play_content.
+
+    Args:
+        tv_name: Name of the room/TV.
+    """
+    try:
+        from . import appletv
+
+        return json.dumps(appletv.list_installed_apps(_atv_host(tv_name)))
+    except Exception as exc:
+        return f"error: {exc}"
+
+
+@beta_tool
 def apple_tv_power(tv_name: str, state: str) -> str:
     """Turn a room's Apple TV on or off. Via HDMI-CEC this also turns the
     attached TV on/off — the only power control for Apple TV-only rooms.
@@ -249,6 +267,7 @@ def now_playing(tv_name: str) -> str:
 TOOLS = [
     list_tvs, power, send_key, launch_app, list_apps,
     play_content, play_abc_iview, apple_tv_remote, apple_tv_power, now_playing,
+    apple_tv_apps,
     # Server-side web search: resolves "the latest ABC News" into a playable URL
     {"type": "web_search_20260209", "name": "web_search", "max_uses": 5},
 ]
@@ -287,6 +306,14 @@ Routing rules:
   opens the title page but does NOT auto-play. After the deep link, use
   now_playing; if not playing, send apple_tv_remote select (the Play button
   has focus on the title page) and check again.
+- Subscription streamers (Paramount+, Stan, Binge, Disney+, ...): call
+  apple_tv_apps FIRST — a deep link into an app that isn't installed fails
+  with no visible result. If the app is missing, tell the user to install
+  it on that room's Apple TV instead of pretending to play. If installed,
+  deep-link the show's official site URL; if now_playing shows nothing
+  started, open the app itself (play_content with its bundle id) and say
+  honestly how far you got — many of these apps only open to a page, and
+  the user picks the episode with the remote.
 - now_playing often reports idle with no app even when content is on
   screen — "Playing" confirms success, but idle does NOT prove failure.
   Never send extra key presses just because now_playing looks idle; report

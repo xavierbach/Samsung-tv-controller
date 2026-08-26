@@ -115,6 +115,22 @@ def pair(host: str) -> None:
     _run(go())
 
 
+def list_installed_apps(host: str) -> list[dict]:
+    """The apps installed on the Apple TV (name + bundle id). Lets the agent
+    check whether a streaming app exists before deep-linking into it."""
+    _require_pyatv()
+
+    async def go():
+        atv = await _connect(host)
+        try:
+            apps = await atv.apps.app_list()
+            return [{"name": a.name, "bundle_id": a.identifier} for a in apps]
+        finally:
+            atv.close()
+
+    return _run(go())
+
+
 def play_url(host: str, url: str) -> str:
     """Deep-link into content: opens the URL on the Apple TV (which turns the
     TV on via HDMI-CEC). Works with YouTube watch URLs, tv.apple.com links,
