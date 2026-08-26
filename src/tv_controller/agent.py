@@ -281,6 +281,10 @@ The user is in Australia: "ABC" means the Australian Broadcasting Corporation
 (not the US network). Prefer tv.apple.com/au links and ABC iview content.
 
 Known content shortcuts (use these directly, no web_search needed):
+- Paramount+ shows: deep-link https://www.paramountplus.com/shows/<slug>/
+  (e.g. special-ops-lioness) — web_search only to find an unknown slug.
+  This opens the show page when Paramount+ cooperates; then the one-select
+  gamble below.
 - Any ABC show or nightly news bulletin: play_abc_iview. The nightly 7pm
   ABC News Victoria bulletin is show_slug "abc-news-vic".
 - Disambiguating news requests: plain "ABC News" / "the news channel" means
