@@ -14,9 +14,27 @@ import os
 import anthropic
 from anthropic import beta_tool
 
+from .config import CONFIG_DIR
 from .tv import KEY_CODES, TVManager
 
 MODEL = os.environ.get("TVCTL_MODEL", "claude-opus-5")
+
+
+def _api_key() -> str | None:
+    """The Anthropic key: from the environment, else from the setup-written
+    env file — so `tvctl do`/`chat` work from a fresh shell, not only under
+    the launchd server. None falls through to the SDK's own resolution."""
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if key:
+        return key
+    env_file = CONFIG_DIR / "env"
+    try:
+        for line in env_file.read_text().splitlines():
+            if line.startswith("ANTHROPIC_API_KEY="):
+                return line.split("=", 1)[1].strip() or None
+    except OSError:
+        pass
+    return None
 MAX_HISTORY = 40  # message entries kept across turns
 MAX_PAUSE_RESTARTS = 4
 
@@ -284,7 +302,9 @@ class TVAgent:
         _manager = manager or TVManager()
         # The server holds a global lock while a command runs, so a hung API
         # call must fail fast rather than wedge every TV in the house.
-        self.client = anthropic.Anthropic(timeout=60.0, max_retries=1)
+        self.client = anthropic.Anthropic(
+            api_key=_api_key(), timeout=60.0, max_retries=1
+        )
         self.messages: list = []
 
     def _trim(self) -> None:
