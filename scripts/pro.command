@@ -61,14 +61,22 @@ echo "[3/4] Running the main setup (Python, TVs, server)..."
 bash "$DIR/scripts/setup-mac.sh"
 
 echo "[4/4] Checking the server is alive..."
-sleep 2
 # The port the server was actually installed with (setup records it here).
 PORT="$(sed -n 's/^TVCTL_PORT=//p' "$HOME/.config/samsung-tv-controller/env" 2>/dev/null | head -1 || true)"
 PORT="${PORT:-8765}"
-if curl -sf "http://localhost:$PORT/health" >/dev/null; then
-    echo "      OK — server is running"
+# Booting the venv + uvicorn takes a few seconds; poll rather than guess.
+ALIVE=""
+for _ in $(seq 1 20); do
+    if curl -sf "http://localhost:$PORT/health" >/dev/null; then
+        ALIVE=1
+        break
+    fi
+    sleep 1
+done
+if [ -n "$ALIVE" ]; then
+    echo "      OK — server is running on port $PORT"
 else
-    echo "      Server not answering yet — check the log at"
+    echo "      Server not answering on port $PORT after 20s — check the log at"
     echo "      ~/Library/Logs/tvctl/server.err.log"
 fi
 

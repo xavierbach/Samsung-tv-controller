@@ -83,4 +83,13 @@ class Config:
         CONFIG_FILE.write_text(yaml.safe_dump(data, sort_keys=False))
 
     def add(self, tv: TVConfig) -> None:
+        # Merge with any existing entry: a re-run of `discover --save` only
+        # knows name+host, and must not wipe the hand-added MAC (wake-on-LAN),
+        # Apple TV link, or port override.
+        existing = self.tvs.get(tv.name)
+        if existing:
+            tv.mac = tv.mac or existing.mac
+            tv.apple_tv = tv.apple_tv or existing.apple_tv
+            if tv.port == 8002 and existing.port != 8002:
+                tv.port = existing.port
         self.tvs[tv.name] = tv

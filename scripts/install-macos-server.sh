@@ -16,14 +16,19 @@ LOG_DIR="$HOME/Library/Logs/tvctl"
 CONFIG_DIR="$HOME/.config/samsung-tv-controller"
 ENV_FILE="$CONFIG_DIR/env"
 
-# Port: an explicit TVCTL_PORT wins, else whatever this Mac was installed
-# with last time (recorded in the env file), else the default. Without the
-# env-file fallback a re-run of setup-mac.sh silently moved a custom port
-# back to 8765 — and every phone/HomePod pointing at the old port saw a
-# dead server.
+# Port: an explicit TVCTL_PORT wins; else whatever this Mac was installed
+# with last time — recorded in the env file, or failing that read out of
+# the existing launchd plist (installs that predate the env-file record).
+# Without these fallbacks a re-run of setup-mac.sh silently moved a custom
+# port back to 8765 — and every phone/HomePod pointing at the old port saw
+# a dead server.
 PORT="${TVCTL_PORT:-}"
 if [ -z "$PORT" ] && [ -f "$ENV_FILE" ]; then
     PORT="$(sed -n 's/^TVCTL_PORT=//p' "$ENV_FILE" | head -1)"
+fi
+if [ -z "$PORT" ] && [ -f "$PLIST" ]; then
+    PORT="$(/usr/libexec/PlistBuddy -c 'Print :ProgramArguments' "$PLIST" 2>/dev/null |
+        awk 'f {gsub(/^[ \t]+|[ \t]+$/, ""); print; exit} /--port/ {f=1}')"
 fi
 PORT="${PORT:-8765}"
 
