@@ -58,12 +58,16 @@ class TV:
                 "use the Apple TV tools instead"
             )
         if self._remote is None:
+            # The timeout also bounds the first-connect approval: the TV shows
+            # an Allow prompt and only sends the auth token once the user
+            # accepts. 8s wasn't enough to find the remote — the connection
+            # died un-tokened and every later command prompted again.
             self._remote = SamsungTVWS(
                 host=self.cfg.host,
                 port=self.cfg.port,
                 token_file=str(self.cfg.token_file),
                 name="samsung-tv-controller",
-                timeout=8,
+                timeout=30,
             )
         return self._remote
 
