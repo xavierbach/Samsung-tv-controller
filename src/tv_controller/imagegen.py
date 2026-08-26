@@ -11,10 +11,17 @@ from __future__ import annotations
 import base64
 import json
 import os
+import ssl
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+import certifi
+
 from .config import CONFIG_DIR
+
+# macOS Pythons don't see the system trust store, so a bare urlopen fails
+# TLS verification against Gemini — verify against certifi's bundle instead.
+_SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
 MODEL = os.environ.get("TVCTL_IMAGE_MODEL", "gemini-2.5-flash-image")
 API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -77,7 +84,7 @@ def generate(
         method="POST",
     )
     try:
-        with urlopen(request, timeout=90) as resp:
+        with urlopen(request, timeout=90, context=_SSL_CONTEXT) as resp:
             payload = json.loads(resp.read())
     except HTTPError as exc:
         detail = ""
