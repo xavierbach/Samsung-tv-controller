@@ -31,14 +31,13 @@ targets:
         NSSpeechRecognitionUsageDescription: Your commands are transcribed on this device.
         NSLocalNetworkUsageDescription: Talks to the TV server on your home network.
         NSAppTransportSecurity:
-          NSAllowsLocalNetworking: true
-          # The server is plain http. ATS already lets raw IPs through, but
-          # blocks http to real hostnames — this allows Tailscale MagicDNS
-          # names (xxx.tailXXXX.ts.net) so the app works away from home.
-          NSExceptionDomains:
-            ts.net:
-              NSIncludesSubdomains: true
-              NSExceptionAllowsInsecureHTTPLoads: true
+          # The server is plain http on a private network (LAN or Tailscale),
+          # and ATS blocks cleartext even to raw IPs — with no way to carve
+          # out an IP via NSExceptionDomains. So allow cleartext app-wide:
+          # acceptable for a sideloaded home app that only talks to its own
+          # server. NOTE: do not add NSAllowsLocalNetworking alongside this —
+          # on iOS 10+ the granular key would make iOS ignore this one.
+          NSAllowsArbitraryLoads: true
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft

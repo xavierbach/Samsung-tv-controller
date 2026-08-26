@@ -315,9 +315,9 @@ struct ContentView: View {
             return "✗ This phone has no network route to \(host) — check "
                 + "Wi‑Fi/cellular, and that Tailscale says Connected."
         case .appTransportSecurityRequiresSecureConnection:
-            return "✗ iOS blocked plain http to \(host) — rebuild the app from "
-                + "the latest code (it allows …ts.net names) or use the "
-                + "Tailscale IP instead of a hostname."
+            return "✗ iOS blocked plain http to \(host). Regenerate the Xcode "
+                + "project from the latest code (cd ios && xcodegen generate) "
+                + "and rebuild — the fixed project allows it."
         default:
             return "✗ \(error.localizedDescription) (URLError \(error.code.rawValue))"
         }

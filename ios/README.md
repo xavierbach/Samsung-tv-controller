@@ -40,8 +40,7 @@ The Swift sources live in `TVRemote/`. Create the project shell yourself:
    | `NSMicrophoneUsageDescription` | "Hold-to-talk uses the microphone." |
    | `NSSpeechRecognitionUsageDescription` | "Your commands are transcribed on this device." |
    | `NSLocalNetworkUsageDescription` | "Talks to the TV server on your home network." |
-   | `App Transport Security Settings` → `NSAllowsLocalNetworking` | `YES` (the server is plain http on your LAN) |
-   | `App Transport Security Settings` → `Exception Domains` → `ts.net` | `NSIncludesSubdomains` = `YES`, `NSExceptionAllowsInsecureHTTPLoads` = `YES` (lets Tailscale MagicDNS names work away from home) |
+   | `App Transport Security Settings` → `NSAllowsArbitraryLoads` | `YES` — the server is plain http on a private network, and ATS blocks cleartext even to raw IP addresses (which can't be exempted individually). Don't add `NSAllowsLocalNetworking` alongside it: that granular key makes iOS ignore `NSAllowsArbitraryLoads`. |
 
 4. **Signing & Capabilities** → set your Team (your Apple ID) and a unique
    bundle ID like `com.yourname.tvremote`.
