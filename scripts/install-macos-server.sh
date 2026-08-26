@@ -34,7 +34,19 @@ PORT="${PORT:-8765}"
 
 TVCTL="$(command -v tvctl || true)"
 if [ -z "$TVCTL" ]; then
-    echo "error: 'tvctl' not found on PATH. Install first: pip install -e '.[appletv]'" >&2
+    # Not on PATH (normal when run directly from a fresh shell) — look for
+    # the venv next to this script, then in the standard clone location.
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    for cand in "$SCRIPT_DIR/../.venv/bin/tvctl" "$HOME/samsung-tv-controller/.venv/bin/tvctl"; do
+        if [ -x "$cand" ]; then
+            TVCTL="$(cd "$(dirname "$cand")" && pwd)/tvctl"
+            break
+        fi
+    done
+fi
+if [ -z "$TVCTL" ]; then
+    echo "error: 'tvctl' not found on PATH or in a repo venv." >&2
+    echo "Install first: pip install -e '.[appletv]'  (or run scripts/setup-mac.sh)" >&2
     exit 1
 fi
 
