@@ -134,9 +134,42 @@ class TV:
             "power": power,
             # Frame TVs advertise Art Mode support in their device info
             "art_mode": is_frame,
+            # Whether the one-time Allow prompt has been accepted (token cached)
+            "authorized": self.cfg.token_file.exists(),
         }
 
     # -- actions -------------------------------------------------------------
+
+    def authorize(self) -> str:
+        """Pop the TV's one-time Allow prompt and wait for the user to accept.
+
+        Opening the authenticated remote socket is what triggers the prompt;
+        on acceptance the library stores the granted token next to the
+        config, and every later connection is silent. The 30s connect
+        timeout (see _connect) bounds the wait.
+        """
+        if self.cfg.host is None:
+            raise RuntimeError(f"'{self.name}' has no Samsung TV to authorize")
+        had_token = self.cfg.token_file.exists()
+        try:
+            remote = self._connect()
+            try:
+                remote.open()
+            except AttributeError:
+                # samsungtvws without open(): a harmless key forces the
+                # same handshake
+                remote.send_key("KEY_RETURN")
+        except Exception as exc:
+            self._remote = None
+            raise RuntimeError(
+                "the TV didn't grant access — the Allow prompt was declined "
+                f"or timed out ({exc})"
+            ) from exc
+        if had_token:
+            return f"{self.name} was already approved"
+        if self.cfg.token_file.exists():
+            return f"{self.name} approved — access saved permanently"
+        return f"connected to {self.name} (this model didn't need a token)"
 
     def send_key(self, key: str, repeat: int = 1) -> None:
         remote = self._connect()
@@ -257,6 +290,34 @@ class TVManager:
     def __init__(self, config: Config | None = None):
         self.config = config or Config.load()
         self.tvs = {name: TV(cfg) for name, cfg in self.config.tvs.items()}
+
+    def reload(self) -> None:
+        """Re-read the config into this same object — the server and agent
+        share one manager, so mutation beats replacement."""
+        self.config = Config.load()
+        self.tvs = {name: TV(cfg) for name, cfg in self.config.tvs.items()}
+
+    def discover_and_save(self) -> str:
+        """Scan the LAN for Samsung TVs, merge them into the config (existing
+        entries keep their MAC/Apple TV/port), save, and reload."""
+        from .discovery import discover
+
+        found = discover()
+        if not found:
+            return "No Samsung TVs answered the scan — make sure they're awake."
+        fresh = Config.load()  # pick up any hand edits before merging
+        new = []
+        for d in found:
+            name = d.friendly_name.lower().replace(" ", "-")
+            if name not in fresh.tvs:
+                new.append(name)
+            fresh.add(TVConfig(name=name, host=d.host, mac=d.mac))
+        fresh.save()
+        self.reload()
+        names = ", ".join(sorted(tv.friendly_name for tv in found))
+        if new:
+            return f"Found {len(found)} TVs ({names}) — new: {', '.join(new)}."
+        return f"Found {len(found)} TVs ({names}) — no new ones."
 
     @staticmethod
     def _norm(name: str) -> str:

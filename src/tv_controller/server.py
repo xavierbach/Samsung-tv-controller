@@ -10,7 +10,9 @@ everything else goes through the Claude agent.
 Endpoints:
     POST /command   {"text": "mute the bedroom tv", "room": "dining-room"?}
     POST /artwork   multipart: tv=<name>, image=<jpeg/png> — Frame TV Art Mode
-    GET  /status    power state (and Art Mode support) of every TV
+    POST /discover  scan the LAN for Samsung TVs, merge into the config
+    POST /authorize {"tv": "office-frame"} — pop that TV's Allow prompt
+    GET  /status    power state (art mode, approval) of every TV
     GET  /health    liveness probe
 """
 
@@ -111,6 +113,48 @@ def artwork(tv: str = Form(...), image: UploadFile = File(...)) -> Reply:
         except Exception as exc:
             log.exception("artwork upload failed for %r", tv)
             reply = f"Couldn't set the artwork: {exc}"
+    finally:
+        _lock.release()
+    return Reply(reply=reply, fast_path=True)
+
+
+class AuthorizeCmd(BaseModel):
+    tv: str
+
+
+@app.post("/discover", response_model=Reply)
+def discover_tvs() -> Reply:
+    """Scan the LAN for Samsung TVs and merge them into the config."""
+    if not _lock.acquire(timeout=15):
+        return Reply(
+            reply="Still working on an earlier command — try again in a moment.",
+            fast_path=True,
+        )
+    try:
+        try:
+            reply = _get_manager().discover_and_save()
+        except Exception as exc:
+            log.exception("discover failed")
+            reply = f"Scan failed: {exc}"
+    finally:
+        _lock.release()
+    return Reply(reply=reply, fast_path=True)
+
+
+@app.post("/authorize", response_model=Reply)
+def authorize(cmd: AuthorizeCmd) -> Reply:
+    """Pop the Allow prompt on one TV and wait for the user to accept it."""
+    if not _lock.acquire(timeout=15):
+        return Reply(
+            reply="Still working on an earlier command — try again in a moment.",
+            fast_path=True,
+        )
+    try:
+        try:
+            reply = _get_manager().get(cmd.tv).authorize()
+        except Exception as exc:
+            log.exception("authorize failed for %r", cmd.tv)
+            reply = f"Couldn't approve: {exc}"
     finally:
         _lock.release()
     return Reply(reply=reply, fast_path=True)

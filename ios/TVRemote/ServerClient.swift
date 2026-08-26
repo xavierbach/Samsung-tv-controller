@@ -6,6 +6,7 @@ struct TVStatus: Decodable, Identifiable {
     let power: String
     let apple_tv: Bool
     let art_mode: Bool?  // optional so older servers still decode
+    let authorized: Bool?  // Allow prompt accepted; optional for older servers
     var id: String { name }
 
     var supportsArtMode: Bool { art_mode ?? false }
@@ -81,6 +82,27 @@ final class ServerClient {
         let (data, _) = try await Self.session.data(
             from: baseURL.appending(path: "status"))
         return try JSONDecoder().decode([TVStatus].self, from: data)
+    }
+
+    /// Scan the LAN for Samsung TVs and save them into the server's config.
+    func discover() async throws -> CommandReply {
+        var request = URLRequest(url: baseURL.appending(path: "discover"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 40
+        let (data, _) = try await Self.session.data(for: request)
+        return try JSONDecoder().decode(CommandReply.self, from: data)
+    }
+
+    /// Pop the Allow prompt on one TV; resolves when the user accepts (or
+    /// the TV's 30s approval window closes).
+    func authorize(tv: String) async throws -> CommandReply {
+        var request = URLRequest(url: baseURL.appending(path: "authorize"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 40
+        request.httpBody = try JSONEncoder().encode(["tv": tv])
+        let (data, _) = try await Self.session.data(for: request)
+        return try JSONDecoder().decode(CommandReply.self, from: data)
     }
 
     /// Upload a 16:9 JPEG and set it as the Frame TV's Art Mode artwork.

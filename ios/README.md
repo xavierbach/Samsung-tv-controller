@@ -62,6 +62,12 @@ same port (e.g. `http://100.x.y.z:8766`), and make sure the Tailscale app
 on the phone says **Connected** — iOS drops the tunnel in the background.
 See the Tailscale troubleshooting section in the main README.
 
+**Adding TVs:** all from the app — Settings → **Scan for new TVs** finds
+Samsungs on the network and saves them (with their wake-on-LAN MAC) to the
+server's config, and each TV's **Approve** button pops its one-time Allow
+prompt; accept with that TV's remote and the access token is stored on the
+server permanently. Walk the house once and every TV ends up approved.
+
 ## Sideloading refresher
 
 - **Free Apple ID:** builds expire after 7 days; re-run from Xcode weekly,

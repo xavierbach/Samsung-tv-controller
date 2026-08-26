@@ -16,6 +16,9 @@ struct ContentView: View {
     @State private var croppingArt = false
     @State private var connectionTest: String?
     @State private var testingConnection = false
+    @State private var scanningTVs = false
+    @State private var approvingTV: String?
+    @State private var setupResult: String?
 
     private var client: ServerClient? {
         // Pasted addresses often carry an invisible trailing space/newline,
@@ -273,11 +276,99 @@ struct ContentView: View {
                         + "IP or …ts.net name, and Tailscale must say Connected "
                         + "on this phone.")
                 }
+                Section {
+                    Button {
+                        Task { await scanForTVs() }
+                    } label: {
+                        if scanningTVs {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                Text("Scanning the network…")
+                            }
+                        } else {
+                            Text("Scan for new TVs")
+                        }
+                    }
+                    .disabled(scanningTVs || approvingTV != nil)
+                    ForEach(samsungTVs) { tv in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(roomLabel(tv))
+                                Text(tv.host)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if tv.authorized == true {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundStyle(.green)
+                            } else if approvingTV == tv.name {
+                                ProgressView()
+                            } else {
+                                Button("Approve") {
+                                    Task { await approve(tv) }
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(approvingTV != nil || scanningTVs)
+                            }
+                        }
+                    }
+                    if let setupResult {
+                        Text(setupResult)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("TVs")
+                } footer: {
+                    Text("Approve pops the Allow prompt on that TV's screen — "
+                        + "accept it with that TV's remote within 30 seconds. "
+                        + "Once approved, access is saved on the server for good.")
+                }
             }
             .navigationTitle("Settings")
             .toolbar { Button("Done") { showSettings = false } }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    private var samsungTVs: [TVStatus] {
+        tvs.filter { $0.host != "-" }  // Apple TV-only rooms need no approval
+    }
+
+    private func roomLabel(_ tv: TVStatus) -> String {
+        tv.name
+            .replacingOccurrences(of: "-frame", with: "")
+            .replacingOccurrences(of: "-", with: " ")
+            .capitalized
+    }
+
+    private func scanForTVs() async {
+        guard let client else {
+            setupResult = "Set the server address first."
+            return
+        }
+        scanningTVs = true
+        defer { scanningTVs = false }
+        do {
+            setupResult = try await client.discover().reply
+            await refreshStatus()
+        } catch {
+            setupResult = "Scan failed — \(error.localizedDescription)"
+        }
+    }
+
+    private func approve(_ tv: TVStatus) async {
+        guard let client else { return }
+        approvingTV = tv.name
+        setupResult = "Watch the \(roomLabel(tv)) TV — accept the prompt with its remote…"
+        defer { approvingTV = nil }
+        do {
+            setupResult = try await client.authorize(tv: tv.name).reply
+            await refreshStatus()
+        } catch {
+            setupResult = "Approval failed — \(error.localizedDescription)"
+        }
     }
 
     private func testConnection() async {
