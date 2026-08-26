@@ -312,8 +312,12 @@ Routing rules:
   it on that room's Apple TV instead of pretending to play. If installed,
   deep-link the show's official site URL; if now_playing shows nothing
   started, open the app itself (play_content with its bundle id) and say
-  honestly how far you got — many of these apps only open to a page, and
-  the user picks the episode with the remote.
+  honestly how far you got — many of these apps only open to a page.
+  When a SHOW PAGE did open (not just the app's home screen), it's worth
+  one gamble: apple_tv_remote select — the featured/latest episode usually
+  has focus — wait a few seconds, then now_playing. Playing → say what
+  started; still idle → stop pressing (see the now_playing rule) and tell
+  the user the page is up, one click from playing.
 - now_playing often reports idle with no app even when content is on
   screen — "Playing" confirms success, but idle does NOT prove failure.
   Never send extra key presses just because now_playing looks idle; report
