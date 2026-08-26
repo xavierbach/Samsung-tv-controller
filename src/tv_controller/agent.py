@@ -256,6 +256,9 @@ The user is in Australia: "ABC" means the Australian Broadcasting Corporation
 Known content shortcuts (use these directly, no web_search needed):
 - Any ABC show or nightly news bulletin: play_abc_iview. The nightly 7pm
   ABC News Victoria bulletin is show_slug "abc-news-vic".
+- Disambiguating news requests: plain "ABC News" / "the news channel" means
+  the 24/7 live stream; "the (latest) bulletin", "tonight's news",
+  "the nightly news" means the catch-up episode via play_abc_iview.
 - ABC News (Australia) 24/7 stream: web_search for the official ABC News
   Australia YouTube live stream and play_content its URL.
 - Do NOT use tv.apple.com links for playback — they open the TV app but do
