@@ -178,7 +178,13 @@ class TV:
             time.sleep(0.15)
 
     def power_on(self) -> str:
-        if self.is_on():
+        device = self._device_info()
+        if bool(device) and device.get("PowerState", "on") == "on":
+            # A Frame showing art is "on" but not showing TV — a power tap
+            # brings it back to content.
+            if device.get("FrameTVSupport") == "true" and self._art_mode_on():
+                self.send_key("KEY_POWER")
+                return "switched from art mode back to TV"
             return "already on"
         if self.cfg.mac:
             send_magic_packet(self.cfg.mac)
@@ -197,17 +203,35 @@ class TV:
             )
 
     def power_off(self) -> str:
+        """Soft off — the household default. A Frame drops into Art Mode
+        (instant on later, no wake-on-LAN dance); other TVs turn off.
+        Full power-down is power_off_hard, used only on explicit request."""
         device = self._device_info()
         if not (bool(device) and device.get("PowerState", "on") == "on"):
             return "already off"
         if device.get("FrameTVSupport") == "true":
-            # A tap of KEY_POWER only toggles a Frame between TV and Art
-            # Mode; the long press is what actually blacks out the screen.
+            # Guard: a power tap on a Frame already in Art Mode would wake
+            # it back to TV — the opposite of "turn it off".
+            if self._art_mode_on():
+                return "already showing art"
+            self.send_key("KEY_POWER")
+            return "switched to art mode"
+        self.send_key("KEY_POWER")
+        self._remote = None  # connection drops when the TV sleeps
+        return "powered off"
+
+    def power_off_hard(self) -> str:
+        """Fully power down — black screen. On a Frame that's the long
+        press of KEY_POWER; a tap only toggles Art Mode."""
+        device = self._device_info()
+        if not (bool(device) and device.get("PowerState", "on") == "on"):
+            return "already off"
+        if device.get("FrameTVSupport") == "true":
             self._connect().hold_key("KEY_POWER", 3)
         else:
             self.send_key("KEY_POWER")
         self._remote = None  # connection drops when the TV sleeps
-        return "powered off"
+        return "powered off completely"
 
     def list_apps(self) -> list[dict]:
         # Newer Frame firmware never answers the websocket app-list request,

@@ -79,12 +79,20 @@ def power(tv_name: str, state: str) -> str:
 
     Args:
         tv_name: Name of the TV, or "all" for every TV in the house.
-        state: Either "on" or "off".
+        state: "on", "off" (soft off — a Frame TV drops into Art Mode; this
+            is the household default for any plain "turn it off"), or
+            "fully_off" (real power-down, black screen — ONLY when the user
+            explicitly says fully/completely off).
     """
     results = {}
     for tv in _mgr().resolve(tv_name):
         try:
-            results[tv.name] = tv.power_on() if state == "on" else tv.power_off()
+            if state == "on":
+                results[tv.name] = tv.power_on()
+            elif state == "fully_off":
+                results[tv.name] = tv.power_off_hard()
+            else:
+                results[tv.name] = tv.power_off()
         except Exception as exc:
             results[tv.name] = f"error: {exc}"
     return json.dumps(results)
@@ -283,7 +291,11 @@ Routing rules:
   screen — "Playing" confirms success, but idle does NOT prove failure.
   Never send extra key presses just because now_playing looks idle; report
   what you did and let the user confirm the screen.
-- "Turn off" goes through power (Samsung), which really turns the screen off.
+- "Turn off" goes through power (Samsung) with state "off" — on the Frame
+  TVs that means Art Mode, and that IS the intended result. Use
+  "fully_off" ONLY when the user explicitly asks for fully/completely off.
+  If a Frame is showing art and the user asks to turn it ON, power "on"
+  brings it back to TV.
 - Some rooms are Apple TV-only (list_tvs shows power "via apple tv" — e.g. the
   gym's old Sony): ALL control there goes through the Apple TV tools, with
   apple_tv_power for on/off (CEC drives the TV) and apple_tv_remote volume_up/

@@ -63,17 +63,24 @@ def try_fast_path(manager: TVManager, text: str) -> str | None:
     if any(tv.cfg.host is None for tv in targets):
         return None
 
-    # power on/off
+    # power on/off. Plain "off" is the soft off (a Frame drops into Art
+    # Mode); "fully/completely off" is the real power-down.
     m = re.search(r"\b(?:turn|power|switch)\s+(on|off)\b|\b(on|off)\b\s*$", t)
     if m and re.search(r"\b(turn|power|switch|shut)\b", t):
         state = m.group(1) or m.group(2)
+        hard = state == "off" and bool(
+            re.search(r"\b(fully|completely|properly|all the way|right off)\b", t)
+        )
         results = {}
         for tv in targets:
             try:
-                results[tv.name] = tv.power_on() if state == "on" else tv.power_off()
+                if state == "on":
+                    results[tv.name] = tv.power_on()
+                else:
+                    results[tv.name] = tv.power_off_hard() if hard else tv.power_off()
             except Exception as exc:
                 results[tv.name] = f"error: {exc}"
-        return _summarize(state, results)
+        return _summarize("fully off" if hard else state, results)
 
     for pattern, key, repeat in _PATTERNS:
         if re.search(pattern, t):

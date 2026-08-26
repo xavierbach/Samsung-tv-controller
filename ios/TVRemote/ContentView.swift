@@ -147,9 +147,14 @@ struct ContentView: View {
     }
 
     private func quickToggleText(for tv: TVStatus) -> String {
-        // "art" counts as on: tapping an art-mode Frame turns it fully off
-        // (the server long-presses power for Frames).
-        tv.power == "off" ? "turn on the \(tv.name) tv" : "turn off the \(tv.name) tv"
+        // Tap cycles on → art → fully off → on. Plain "off" is the soft
+        // off (Frames drop into Art Mode); only the art-state tap asks for
+        // the real power-down.
+        switch tv.power {
+        case "on": return "turn off the \(tv.name) tv"
+        case "art": return "turn the \(tv.name) tv fully off"
+        default: return "turn on the \(tv.name) tv"
+        }
     }
 
     // MARK: conversation
