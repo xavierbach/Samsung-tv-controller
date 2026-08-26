@@ -221,17 +221,43 @@ class TV:
         return "powered off"
 
     def power_off_hard(self) -> str:
-        """Fully power down — black screen. On a Frame that's the long
-        press of KEY_POWER; a tap only toggles Art Mode."""
+        """Fully power down — black screen. Frames need the long press of
+        KEY_POWER (a tap only toggles Art Mode), but some firmware ignores
+        the synthetic hold — so verify the TV actually went down, fall back
+        to the discrete KEY_POWEROFF, and never claim success unchecked."""
         device = self._device_info()
         if not (bool(device) and device.get("PowerState", "on") == "on"):
             return "already off"
-        if device.get("FrameTVSupport") == "true":
-            self._connect().hold_key("KEY_POWER", 3)
-        else:
+        if device.get("FrameTVSupport") != "true":
             self.send_key("KEY_POWER")
-        self._remote = None  # connection drops when the TV sleeps
-        return "powered off completely"
+            self._remote = None  # connection drops when the TV sleeps
+            return "powered off completely"
+
+        def went_down() -> bool:
+            for _ in range(8):
+                time.sleep(1)
+                d = self._device_info()
+                if not d or d.get("PowerState", "on") != "on":
+                    return True
+            return False
+
+        for attempt in ("hold", "discrete"):
+            try:
+                if attempt == "hold":
+                    self._connect().hold_key("KEY_POWER", 3)
+                else:
+                    self.send_key("KEY_POWEROFF")
+            except Exception:
+                self._remote = None
+                continue
+            if went_down():
+                self._remote = None
+                return "powered off completely"
+        self._remote = None
+        return (
+            "error: the TV ignored both power-off methods and is still on — "
+            "try again, or use the physical remote (hold its power button)"
+        )
 
     def list_apps(self) -> list[dict]:
         # Newer Frame firmware never answers the websocket app-list request,

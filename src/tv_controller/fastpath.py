@@ -19,13 +19,24 @@ from .tv import TVManager
 _ALL = r"(?:all(?: the)?(?: tvs?)?|every\s*(?:thing|where|tv)?|the house)"
 
 
+def _aliases(name: str) -> set[str]:
+    """Ways people say a TV's name: 'office-frame' answers to
+    'office frame' and plain 'office'."""
+    spoken = name.replace("-", " ")
+    alts = {spoken}
+    if spoken.endswith(" frame"):
+        alts.add(spoken.removesuffix(" frame").strip())
+    return alts
+
+
 def _find_target(manager: TVManager, text: str) -> list | None:
     """Resolve which TV(s) the text refers to. None = ambiguous, bail out."""
     if re.search(_ALL, text):
         return list(manager.tvs.values())
+    spoken_text = text.replace("-", " ")
     named = [
         tv for name, tv in manager.tvs.items()
-        if re.search(re.escape(name.replace("-", " ")), text.replace("-", " "))
+        if any(re.search(rf"\b{re.escape(a)}\b", spoken_text) for a in _aliases(name))
     ]
     if len(named) == 1:
         return named
