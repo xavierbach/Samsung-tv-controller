@@ -141,20 +141,18 @@ struct ContentView: View {
             ForEach(tvs) { tv in
                 RoomCard(tv: tv) {
                     Task { await send(quickToggleText(for: tv), spoken: false) }
+                } onFullOff: {
+                    Task { await send("turn the \(tv.name) tv fully off", spoken: false) }
                 }
             }
         }
     }
 
     private func quickToggleText(for tv: TVStatus) -> String {
-        // Tap cycles on → art → fully off → on. Plain "off" is the soft
-        // off (Frames drop into Art Mode); only the art-state tap asks for
-        // the real power-down.
-        switch tv.power {
-        case "on": return "turn off the \(tv.name) tv"
-        case "art": return "turn the \(tv.name) tv fully off"
-        default: return "turn on the \(tv.name) tv"
-        }
+        // Art is the resting state, so a tap toggles between "showing
+        // content" and "not": on → art, art/off → on. The real power-down
+        // lives in the tile's long-press menu only.
+        tv.power == "on" ? "turn off the \(tv.name) tv" : "turn on the \(tv.name) tv"
     }
 
     // MARK: conversation
@@ -498,6 +496,7 @@ struct ContentView: View {
 struct RoomCard: View {
     let tv: TVStatus
     let onTap: () -> Void
+    let onFullOff: () -> Void
 
     private var isOn: Bool { tv.power == "on" }
     private var isArt: Bool { tv.power == "art" }
@@ -568,6 +567,13 @@ struct RoomCard: View {
             )
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            if tv.power != "off" {
+                Button(role: .destructive, action: onFullOff) {
+                    Label("Turn fully off", systemImage: "power")
+                }
+            }
+        }
     }
 }
 
