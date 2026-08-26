@@ -124,7 +124,11 @@ struct ContentView: View {
         if !serverReachable { return "Can't reach the house server" }
         if tvs.isEmpty { return "Looking for your TVs…" }
         let on = tvs.filter { $0.power == "on" }.count
-        return on == 0 ? "All quiet" : "\(on) screen\(on == 1 ? "" : "s") on"
+        let art = tvs.filter { $0.power == "art" }.count
+        var parts: [String] = []
+        if on > 0 { parts.append("\(on) screen\(on == 1 ? "" : "s") on") }
+        if art > 0 { parts.append("\(art) showing art") }
+        return parts.isEmpty ? "All quiet" : parts.joined(separator: " · ")
     }
 
     // MARK: rooms
@@ -140,7 +144,9 @@ struct ContentView: View {
     }
 
     private func quickToggleText(for tv: TVStatus) -> String {
-        tv.power == "on" ? "turn off the \(tv.name) tv" : "turn on the \(tv.name) tv"
+        // "art" counts as on: tapping an art-mode Frame turns it fully off
+        // (the server long-presses power for Frames).
+        tv.power == "off" ? "turn on the \(tv.name) tv" : "turn off the \(tv.name) tv"
     }
 
     // MARK: conversation
@@ -398,7 +404,23 @@ struct RoomCard: View {
     let onTap: () -> Void
 
     private var isOn: Bool { tv.power == "on" }
+    private var isArt: Bool { tv.power == "art" }
     private var isAppleTVRoom: Bool { tv.power == "via apple tv" }
+
+    private static let artAmber = Color(red: 0.95, green: 0.72, blue: 0.35)
+
+    private var dotColor: Color {
+        if isOn { return .green }
+        if isArt { return Self.artAmber }
+        if isAppleTVRoom { return .cyan.opacity(0.7) }
+        return .white.opacity(0.2)
+    }
+
+    private var dotGlow: Color {
+        if isOn { return .green.opacity(0.8) }
+        if isArt { return Self.artAmber.opacity(0.7) }
+        return .clear
+    }
 
     private var roomName: String {
         tv.name
@@ -411,21 +433,22 @@ struct RoomCard: View {
         if isAppleTVRoom { return "Apple TV" }
         // A Samsung room with an Apple TV behind it: the tile is still the
         // Samsung, but advertise the precision layer.
-        return (isOn ? "On" : "Off") + (tv.apple_tv ? " · Apple TV" : "")
+        let state = isArt ? "Art" : (isOn ? "On" : "Off")
+        return state + (tv.apple_tv ? " · Apple TV" : "")
     }
 
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Image(systemName: isAppleTVRoom ? "appletv.fill" : "tv")
+                    Image(systemName: isAppleTVRoom ? "appletv.fill" : (isArt ? "photo.artframe" : "tv"))
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(isOn ? .white : .white.opacity(0.45))
+                        .foregroundStyle(isOn || isArt ? .white : .white.opacity(0.45))
                     Spacer()
                     Circle()
-                        .fill(isOn ? Color.green : (isAppleTVRoom ? Color.cyan.opacity(0.7) : Color.white.opacity(0.2)))
+                        .fill(dotColor)
                         .frame(width: 8, height: 8)
-                        .shadow(color: isOn ? .green.opacity(0.8) : .clear, radius: 4)
+                        .shadow(color: dotGlow, radius: 4)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(roomName)
@@ -441,11 +464,11 @@ struct RoomCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(.white.opacity(isOn ? 0.12 : 0.06))
+                    .fill(.white.opacity(isOn || isArt ? 0.12 : 0.06))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .strokeBorder(.white.opacity(isOn ? 0.18 : 0.08), lineWidth: 1)
+                    .strokeBorder(.white.opacity(isOn || isArt ? 0.18 : 0.08), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

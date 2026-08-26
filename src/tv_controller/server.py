@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, File, Form, UploadFile
 from pydantic import BaseModel
@@ -118,12 +119,18 @@ def artwork(tv: str = Form(...), image: UploadFile = File(...)) -> Reply:
 @app.get("/status")
 def status() -> list[dict]:
     manager = _get_manager()
-    out = []
-    for tv in manager.tvs.values():
+
+    # Each TV's status is an independent network probe (and, for Frames, an
+    # Art Mode query) — run them concurrently so the slowest TV, not the sum
+    # of all of them, bounds the response time.
+    def one(tv) -> dict:
         s = tv.status()
         s["apple_tv"] = bool(tv.cfg.apple_tv)
-        out.append(s)
-    return out
+        return s
+
+    tvs = list(manager.tvs.values())
+    with ThreadPoolExecutor(max_workers=max(1, len(tvs))) as pool:
+        return list(pool.map(one, tvs))
 
 
 @app.get("/health")

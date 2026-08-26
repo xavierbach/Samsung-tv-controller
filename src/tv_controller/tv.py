@@ -87,17 +87,53 @@ class TV:
         device = self._device_info()
         return bool(device) and device.get("PowerState", "on") == "on"
 
+    def _art_mode_on(self) -> bool | None:
+        """Whether a Frame is currently showing art. None = couldn't tell.
+
+        Only asks TVs whose one-time Allow prompt has been accepted (token
+        cached) — the art socket would trigger the prompt on every status
+        poll otherwise. Newer Frame firmware sometimes never answers, so the
+        request runs in a worker thread we can abandon (same trick as
+        list_apps).
+        """
+        if not self.cfg.token_file.exists():
+            return None
+        try:
+            art = self._connect().art()
+        except Exception:
+            return None
+        pool = ThreadPoolExecutor(max_workers=1)
+        future = pool.submit(art.get_artmode)
+        pool.shutdown(wait=False)
+        try:
+            mode = future.result(timeout=4)
+        except Exception:
+            self._remote = None  # the abandoned thread still owns that socket
+            return None
+        try:
+            art.close()
+        except Exception:
+            pass
+        return str(mode).lower() == "on"
+
     def status(self) -> dict:
         if self.cfg.host is None:
             return {"name": self.name, "host": "-", "power": "via apple tv", "art_mode": False}
         device = self._device_info()
         on = bool(device) and device.get("PowerState", "on") == "on"
+        is_frame = device.get("FrameTVSupport") == "true"
+        # Three states: "on" (content), "art" (Frame showing art), "off".
+        # A Frame in Art Mode still reports PowerState on — the art socket
+        # is the only way to tell the two apart.
+        power = "on" if on else "off"
+        if on and is_frame and self._art_mode_on():
+            power = "art"
         return {
             "name": self.name,
             "host": self.cfg.host,
-            "power": "on" if on else "off",
+            "power": power,
             # Frame TVs advertise Art Mode support in their device info
-            "art_mode": device.get("FrameTVSupport") == "true",
+            "art_mode": is_frame,
         }
 
     # -- actions -------------------------------------------------------------
@@ -122,9 +158,15 @@ class TV:
             return f"could not wake TV (no MAC configured for wake-on-LAN): {exc}"
 
     def power_off(self) -> str:
-        if not self.is_on():
+        device = self._device_info()
+        if not (bool(device) and device.get("PowerState", "on") == "on"):
             return "already off"
-        self.send_key("KEY_POWER")
+        if device.get("FrameTVSupport") == "true":
+            # A tap of KEY_POWER only toggles a Frame between TV and Art
+            # Mode; the long press is what actually blacks out the screen.
+            self._connect().hold_key("KEY_POWER", 3)
+        else:
+            self.send_key("KEY_POWER")
         self._remote = None  # connection drops when the TV sleeps
         return "powered off"
 
