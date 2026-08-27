@@ -21,6 +21,15 @@ struct GeneratedArt: Decodable {
     let reply: String
     let image_b64: String?  // absent when generation failed — reply says why
     let mime: String?
+    let library_id: String?  // where the server archived it
+}
+
+struct LibraryItem: Decodable, Identifiable {
+    let id: String
+    let kind: String  // "generated" | "photo"
+    let prompt: String?
+    let created: Double
+    let hung_on: [String]
 }
 
 /// Thin client for the home server running on the Mac.
@@ -140,6 +149,41 @@ final class ServerClient {
 
         let (data, _) = try await Self.uploadSession.upload(for: request, from: body)
         return try JSONDecoder().decode(GeneratedArt.self, from: data)
+    }
+
+    /// Everything ever generated or cropped, newest first (metadata only —
+    /// images load lazily via thumbURL/imageURL).
+    func library() async throws -> [LibraryItem] {
+        let (data, _) = try await Self.session.data(
+            from: baseURL.appending(path: "library"))
+        return try JSONDecoder().decode([LibraryItem].self, from: data)
+    }
+
+    func thumbURL(for id: String) -> URL {
+        baseURL.appending(path: "library/\(id)/thumb")
+    }
+
+    func imageURL(for id: String) -> URL {
+        baseURL.appending(path: "library/\(id)/image")
+    }
+
+    /// Hang an artwork the server already has — no re-upload from the phone.
+    func hangFromLibrary(tv: String, id: String) async throws -> CommandReply {
+        var request = URLRequest(url: baseURL.appending(path: "artwork-from-library"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 120  // may wake the TV before uploading
+        request.httpBody = try JSONEncoder().encode(["tv": tv, "id": id])
+        let (data, _) = try await Self.uploadSession.data(for: request)
+        return try JSONDecoder().decode(CommandReply.self, from: data)
+    }
+
+    /// Remove an artwork from the server's library (not from any TV).
+    func deleteLibraryItem(id: String) async throws -> CommandReply {
+        var request = URLRequest(url: baseURL.appending(path: "library/\(id)"))
+        request.httpMethod = "DELETE"
+        let (data, _) = try await Self.session.data(for: request)
+        return try JSONDecoder().decode(CommandReply.self, from: data)
     }
 
     /// Upload a 16:9 JPEG and set it as the Frame TV's Art Mode artwork.

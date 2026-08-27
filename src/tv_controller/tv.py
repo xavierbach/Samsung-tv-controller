@@ -351,8 +351,23 @@ class TV:
             self._connect().open_browser(url)
         return f"opened {url} in the TV browser"
 
-    def set_artwork(self, image: bytes, file_type: str = "jpg") -> str:
-        """Upload an image to a Frame TV and show it in Art Mode."""
+    def delete_artworks(self, content_ids: list[str]) -> None:
+        """Remove uploaded artworks from a Frame's internal storage by the
+        content_ids its art API assigned at upload time."""
+        if not content_ids:
+            return
+        art = self._connect().art()
+        try:
+            if len(content_ids) == 1:
+                art.delete(content_ids[0])
+            else:
+                art.delete_list(content_ids)
+        finally:
+            art.close()
+
+    def set_artwork(self, image: bytes, file_type: str = "jpg") -> tuple[str, str]:
+        """Upload an image to a Frame TV and show it in Art Mode.
+        Returns (user-facing message, the TV's content_id for the upload)."""
         if self.cfg.host is None:
             raise RuntimeError(f"'{self.name}' has no Samsung TV to hang artwork on")
         # A sleeping Frame won't answer device info or accept the upload
@@ -377,7 +392,7 @@ class TV:
             art.select_image(content_id)
         finally:
             art.close()
-        return f"the artwork is up on the {self.name} TV"
+        return f"the artwork is up on the {self.name} TV", content_id
 
 
 class TVManager:
