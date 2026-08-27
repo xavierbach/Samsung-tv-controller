@@ -14,6 +14,10 @@ struct ContentView: View {
     @State private var artPickerItem: PhotosPickerItem?
     @State private var artCandidate: ArtworkImage?
     @State private var croppingArt = false
+    @State private var showArtStudio = false
+    // Art generated in the studio, waiting for its sheet to close before the
+    // TV picker opens — two sheets can't swap in the same tick.
+    @State private var pendingArtwork: ArtworkImage?
     @State private var connectionTest: String?
     @State private var testingConnection = false
     @State private var scanningTVs = false
@@ -37,8 +41,10 @@ struct ContentView: View {
                         .padding(.top, 8)
 
                     ScrollView {
-                        roomGrid
+                        artStudioCard
                             .padding(.top, 18)
+                        roomGrid
+                            .padding(.top, 14)
                     }
                     .scrollIndicators(.hidden)
 
@@ -52,6 +58,17 @@ struct ContentView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showSettings) { settings }
+            .sheet(isPresented: $showArtStudio, onDismiss: {
+                if let pendingArtwork {
+                    artCandidate = pendingArtwork
+                    self.pendingArtwork = nil
+                }
+            }) {
+                ArtStudioSheet(client: client) { artwork in
+                    pendingArtwork = artwork
+                }
+                .presentationDetents([.large])
+            }
             .sheet(item: $artCandidate) { artwork in
                 ArtworkSheet(artwork: artwork, tvs: tvs, client: client) { result in
                     reply = result
@@ -97,20 +114,6 @@ struct ContentView: View {
                     .foregroundStyle(.white.opacity(0.55))
             }
             Spacer()
-            PhotosPicker(selection: $artPickerItem, matching: .images) {
-                Group {
-                    if croppingArt {
-                        ProgressView().tint(.white.opacity(0.7))
-                    } else {
-                        Image(systemName: "photo.artframe")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                }
-                .frame(width: 40, height: 40)
-                .background(.white.opacity(0.08), in: Circle())
-            }
-            .disabled(croppingArt)
             Button {
                 showSettings = true
             } label: {
@@ -132,6 +135,85 @@ struct ContentView: View {
         if on > 0 { parts.append("\(on) screen\(on == 1 ? "" : "s") on") }
         if art > 0 { parts.append("\(art) showing art") }
         return parts.isEmpty ? "All quiet" : parts.joined(separator: " · ")
+    }
+
+    // MARK: art studio
+
+    /// The hero of the app: AI-generated artwork or a photo, straight onto a
+    /// Frame's Art Mode. Promoted from a tiny header button to a full card.
+    private var artStudioCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Image(systemName: "photo.artframe")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 46, height: 46)
+                    .background(
+                        .white.opacity(0.14),
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Art Studio")
+                        .font(.system(.title3, design: .rounded).weight(.bold))
+                        .foregroundStyle(.white)
+                    Text("Paint any idea onto your Frame")
+                        .font(.system(.footnote, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                Spacer()
+            }
+            HStack(spacing: 10) {
+                Button {
+                    showArtStudio = true
+                } label: {
+                    Label("Imagine", systemImage: "sparkles")
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            .white.opacity(0.16),
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        )
+                }
+                .buttonStyle(.plain)
+                PhotosPicker(selection: $artPickerItem, matching: .images) {
+                    Group {
+                        if croppingArt {
+                            ProgressView().tint(.white)
+                        } else {
+                            Label("Photos", systemImage: "photo.on.rectangle.angled")
+                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        }
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        .white.opacity(0.16),
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    )
+                }
+                .disabled(croppingArt)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.85, green: 0.45, blue: 0.30).opacity(0.55),
+                            Color(red: 0.55, green: 0.30, blue: 0.85).opacity(0.55),
+                        ],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+        )
     }
 
     // MARK: rooms
@@ -175,7 +257,7 @@ struct ContentView: View {
                     .font(.system(.body, design: .rounded))
                     .foregroundStyle(.white.opacity(0.9))
             } else {
-                Text("Hold the mic and say things like\n“movie night in the living room”")
+                Text("Hold the mic and say things like\n“movie night in the living room” or\n“paint a watercolor of the sea in the dining room”")
                     .font(.system(.body, design: .rounded))
                     .foregroundStyle(.white.opacity(0.45))
             }

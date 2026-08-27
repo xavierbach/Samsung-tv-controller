@@ -5,11 +5,18 @@ Speech-to-text runs **on-device** (`SFSpeechRecognizer` with
 `requiresOnDeviceRecognition`), so the transcript is ready the moment your
 thumb lifts and the only network hop is one small POST to the Mac.
 
-There's also a picture-frame button next to the gear: pick any photo and it
-becomes **Frame TV artwork**. The app crops it to 16:9 on-device using
-Vision's attention-based saliency — the crop window slides to keep faces and
-subjects in frame instead of blindly slicing the center — shows you the
-result, asks which TV, and the server uploads it into Art Mode.
+Front and center under the header is the **Art Studio** — the hero of the
+app. **Imagine** opens the AI studio: describe artwork in words, pick a
+style, optionally start from one of your photos, and the Mac server paints
+it (Gemini's image model, native 16:9 — needs `GEMINI_API_KEY` on the
+server, see the main README). Preview it, hit *Hang it on a TV*, done.
+**Photos** hangs any picture from your library: the app crops it to 16:9
+on-device using Vision's attention-based saliency — the crop window slides
+to keep faces and subjects in frame instead of blindly slicing the center —
+shows you the result, asks which TV, and the server uploads it into Art Mode.
+
+(Adding the studio added a source file — re-run `cd ios && xcodegen generate`
+after pulling, then rebuild.)
 
 ## Build it — fast path (XcodeGen)
 

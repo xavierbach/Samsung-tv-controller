@@ -11,6 +11,7 @@ dependencies = [
     "wakeonlan>=3.0.0",
     "pyyaml>=6.0",
     "certifi",
+    "pillow>=10",  # upscale generated artwork to the Frame's 4K canvas
     "fastapi>=0.110",
     "python-multipart>=0.0.9",  # multipart uploads for POST /artwork
     "uvicorn>=0.29",

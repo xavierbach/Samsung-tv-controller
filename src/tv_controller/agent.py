@@ -151,6 +151,28 @@ def list_apps(tv_name: str) -> str:
         return f"error: {exc}"
 
 
+@beta_tool
+def generate_artwork(tv_name: str, prompt: str) -> str:
+    """Generate AI artwork from a text description and hang it on a Frame TV
+    in Art Mode. Use this when the user asks to create, paint, or put art /
+    a painting / a picture OF something on a TV (as opposed to playing video
+    content). Takes ~20s.
+
+    Args:
+        tv_name: Name of the Frame TV to hang the artwork on.
+        prompt: Description of the artwork, including any style the user gave
+            (e.g. "a watercolor of Half Moon Bay at dusk").
+    """
+    try:
+        from . import imagegen
+
+        data, mime = imagegen.generate(prompt)
+        file_type = "png" if mime.endswith("png") else "jpg"
+        return _mgr().get(tv_name).set_artwork(data, file_type=file_type)
+    except Exception as exc:
+        return f"error: {exc}"
+
+
 # -- Apple TV tools -----------------------------------------------------------
 
 @beta_tool
@@ -265,7 +287,7 @@ def now_playing(tv_name: str) -> str:
 
 
 TOOLS = [
-    list_tvs, power, send_key, launch_app, list_apps,
+    list_tvs, power, send_key, launch_app, list_apps, generate_artwork,
     play_content, play_abc_iview, apple_tv_remote, apple_tv_power, now_playing,
     apple_tv_apps,
     # Server-side web search: resolves "the latest ABC News" into a playable URL
@@ -326,6 +348,10 @@ Routing rules:
   screen — "Playing" confirms success, but idle does NOT prove failure.
   Never send extra key presses just because now_playing looks idle; report
   what you did and let the user confirm the screen.
+- Requests to CREATE or SHOW art/a painting/a picture OF something ("put a
+  watercolor of the beach on the dining room tv", "paint the kids a dragon")
+  go through generate_artwork — it renders the image with AI and hangs it in
+  that Frame's Art Mode. This is different from playing video content.
 - "Turn off" goes through power (Samsung) with state "off" — on the Frame
   TVs that means Art Mode, and that IS the intended result. Use
   "fully_off" ONLY when the user explicitly asks for fully/completely off.

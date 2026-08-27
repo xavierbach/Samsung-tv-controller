@@ -17,6 +17,12 @@ struct CommandReply: Decodable {
     let fast_path: Bool
 }
 
+struct GeneratedArt: Decodable {
+    let reply: String
+    let image_b64: String?  // absent when generation failed — reply says why
+    let mime: String?
+}
+
 /// Thin client for the home server running on the Mac.
 final class ServerClient {
     let baseURL: URL
@@ -29,7 +35,9 @@ final class ServerClient {
     private static let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.waitsForConnectivity = true
-        config.timeoutIntervalForResource = 45
+        // A voice command can now render AI artwork and upload it to a
+        // Frame — the slowest legitimate turn runs well past a minute.
+        config.timeoutIntervalForResource = 150
         return URLSession(configuration: config)
     }()
 
@@ -70,7 +78,7 @@ final class ServerClient {
         var request = URLRequest(url: baseURL.appending(path: "command"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30
+        request.timeoutInterval = 120  // art generation turns are the slow ceiling
         var body: [String: String] = ["text": text, "source": "iphone"]
         if let room { body["room"] = room }
         request.httpBody = try JSONEncoder().encode(body)
@@ -103,6 +111,35 @@ final class ServerClient {
         request.httpBody = try JSONEncoder().encode(["tv": tv])
         let (data, _) = try await Self.session.data(for: request)
         return try JSONDecoder().decode(CommandReply.self, from: data)
+    }
+
+    /// Generate AI artwork from a text prompt (plus an optional reference
+    /// photo). Slow — the image model takes 10–30s; the result comes back
+    /// base64 for in-app preview before it's hung via setArtwork.
+    func generateArt(prompt: String, reference: Data?) async throws -> GeneratedArt {
+        var request = URLRequest(url: baseURL.appending(path: "generate-art"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 120
+
+        let boundary = "tvctl-\(UUID().uuidString)"
+        request.setValue(
+            "multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        var body = Data()
+        body.append(Data("--\(boundary)\r\n".utf8))
+        body.append(Data(
+            "Content-Disposition: form-data; name=\"prompt\"\r\n\r\n\(prompt)\r\n".utf8))
+        if let reference {
+            body.append(Data("--\(boundary)\r\n".utf8))
+            body.append(Data(
+                "Content-Disposition: form-data; name=\"image\"; filename=\"reference.jpg\"\r\n".utf8))
+            body.append(Data("Content-Type: image/jpeg\r\n\r\n".utf8))
+            body.append(reference)
+            body.append(Data("\r\n".utf8))
+        }
+        body.append(Data("--\(boundary)--\r\n".utf8))
+
+        let (data, _) = try await Self.uploadSession.upload(for: request, from: body)
+        return try JSONDecoder().decode(GeneratedArt.self, from: data)
     }
 
     /// Upload a 16:9 JPEG and set it as the Frame TV's Art Mode artwork.
