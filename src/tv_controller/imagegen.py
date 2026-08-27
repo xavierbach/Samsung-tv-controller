@@ -26,12 +26,15 @@ _SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 MODEL = os.environ.get("TVCTL_IMAGE_MODEL", "gemini-2.5-flash-image")
 API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
-# The Frame hangs this on a wall: bias the model toward images that work as
-# decor, and away from the captions and signatures it likes to add.
+# Bias the model toward decor-quality art and away from the captions and
+# signatures it likes to add. Deliberately NO mention of TVs or hanging —
+# told the art was "for a Frame TV", the model sometimes painted the TV
+# itself, bezel, stand and all, around the artwork.
 FRAME_PROMPT = (
-    "Create a single artwork image to be displayed full-screen on a Samsung "
-    "Frame TV hanging in a home — gallery-quality, edge to edge, with no "
-    "text, captions, watermarks, signatures, or borders. The artwork: {prompt}"
+    "Create a single gallery-quality piece of art that fills the entire "
+    "image, edge to edge. Output only the artwork itself: no text, captions, "
+    "watermarks, or signatures, and no borders, mats, picture frames, "
+    "screens, or room mockups around it. The artwork: {prompt}"
 )
 
 
