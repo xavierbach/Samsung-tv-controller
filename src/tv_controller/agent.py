@@ -164,11 +164,15 @@ def generate_artwork(tv_name: str, prompt: str) -> str:
             (e.g. "a watercolor of Half Moon Bay at dusk").
     """
     try:
-        from . import imagegen
+        from . import imagegen, library
 
         data, mime = imagegen.generate(prompt)
         file_type = "png" if mime.endswith("png") else "jpg"
-        return _mgr().get(tv_name).set_artwork(data, file_type=file_type)
+        library_id = library.add(data, kind="generated", prompt=prompt)
+        tv = _mgr().get(tv_name)
+        reply, content_id = tv.set_artwork(data, file_type=file_type)
+        library.record_hang(library_id, tv, content_id)
+        return reply
     except Exception as exc:
         return f"error: {exc}"
 

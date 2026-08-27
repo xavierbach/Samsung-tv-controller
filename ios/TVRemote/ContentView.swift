@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var artCandidate: ArtworkImage?
     @State private var croppingArt = false
     @State private var showArtStudio = false
+    @State private var showLibrary = false
     // Art generated in the studio, waiting for its sheet to close before the
     // TV picker opens — two sheets can't swap in the same tick.
     @State private var pendingArtwork: ArtworkImage?
@@ -66,6 +67,12 @@ struct ContentView: View {
             }) {
                 ArtStudioSheet(client: client) { artwork in
                     pendingArtwork = artwork
+                }
+                .presentationDetents([.large])
+            }
+            .sheet(isPresented: $showLibrary) {
+                LibrarySheet(tvs: tvs, client: client) { result in
+                    reply = result
                 }
                 .presentationDetents([.large])
             }
@@ -195,6 +202,20 @@ struct ContentView: View {
                     )
                 }
                 .disabled(croppingArt)
+                Button {
+                    showLibrary = true
+                } label: {
+                    Label("Library", systemImage: "photo.stack")
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            .white.opacity(0.16),
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        )
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(16)

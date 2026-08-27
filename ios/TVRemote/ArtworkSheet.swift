@@ -115,7 +115,14 @@ struct ArtworkSheet: View {
         sendingTo = tv.name
         defer { sendingTo = nil }
         do {
-            let result = try await client.setArtwork(tv: tv.name, jpeg: artwork.jpeg)
+            // Generated art is already archived on the server — hang it by
+            // library id instead of pushing the JPEG over the network again.
+            let result: CommandReply
+            if let libraryId = artwork.libraryId {
+                result = try await client.hangFromLibrary(tv: tv.name, id: libraryId)
+            } else {
+                result = try await client.setArtwork(tv: tv.name, jpeg: artwork.jpeg)
+            }
             onFinished(result.reply)
         } catch {
             onFinished("Couldn't send the artwork — are you home?")

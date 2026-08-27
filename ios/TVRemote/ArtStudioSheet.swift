@@ -277,12 +277,13 @@ struct ArtStudioSheet: View {
             guard let b64 = art.image_b64,
                   let data = Data(base64Encoded: b64),
                   let image = UIImage(data: data),
-                  let prepared = await prepare(image)
+                  var prepared = await prepare(image)
             else {
                 // No image means the server said why in the reply.
                 errorText = art.reply
                 return
             }
+            prepared.libraryId = art.library_id
             withAnimation(.easeInOut(duration: 0.25)) { result = prepared }
         } catch {
             errorText = "Couldn't reach the studio — \(error.localizedDescription)"

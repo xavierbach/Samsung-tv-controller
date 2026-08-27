@@ -7,6 +7,9 @@ struct ArtworkImage: Identifiable {
     let id = UUID()
     let preview: UIImage
     let jpeg: Data
+    // Set when the server already archived this image (generated art):
+    // hanging then references the library instead of re-uploading.
+    var libraryId: String? = nil
 }
 
 /// Crops any photo to the Frame TV's 16:9 canvas. A naive center crop

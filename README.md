@@ -37,7 +37,12 @@ Siri Shortcut ───┘    fast path + Claude agent ─▶  Apple TVs     (co
   Gemini's image model, native 16:9 — preview it, and hang it on a Frame's
   Art Mode. Or pick any photo: it's smart-cropped to 16:9 on-device (Vision
   saliency keeps the subject in frame) and hung the same way. Voice works
-  too: "paint a watercolor of the sea in the dining room".
+  too: "paint a watercolor of the sea in the dining room". Everything ever
+  generated or cropped is archived in a **library** on the Mac
+  (`~/.config/samsung-tv-controller/library/`) and browsable in the app —
+  re-hang or delete from there. Each TV keeps only the 10 most recent of
+  our uploads (older ones are removed from the TV's storage automatically;
+  the library keeps them all, and Samsung's store art is never touched).
 - **HomePods** (`docs/HOMEPOD.md`): a Siri Shortcut relays free-form voice
   commands from any room.
 
