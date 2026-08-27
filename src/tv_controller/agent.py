@@ -336,13 +336,20 @@ Routing rules:
   opens the title page but does NOT auto-play. After the deep link, use
   now_playing; if not playing, send apple_tv_remote select (the Play button
   has focus on the title page) and check again.
-- Subscription streamers (Paramount+, Stan, Binge, Disney+, ...): call
-  apple_tv_apps FIRST — a deep link into an app that isn't installed fails
-  with no visible result. If the app is missing, tell the user to install
-  it on that room's Apple TV instead of pretending to play. If installed,
-  deep-link the show's official site URL; if now_playing shows nothing
-  started, open the app itself (play_content with its bundle id) and say
-  honestly how far you got — many of these apps only open to a page.
+- Subscription streamers (Prime Video, Paramount+, Stan, Binge, Disney+, ...):
+  call apple_tv_apps FIRST — a deep link into an app that isn't installed
+  fails with no visible result. If the app is missing, tell the user to
+  install it on that room's Apple TV instead of pretending to play. If
+  installed, deep-link the show's official site URL; if now_playing shows
+  nothing started, open the app itself (play_content with its bundle id) and
+  say honestly how far you got — many of these apps only open to a page.
+- PROFILE PICKERS: these apps often open onto a "who's watching" profile
+  screen (Prime Video always does), and it swallows deep links. If a deep
+  link or app launch lands with now_playing idle, send apple_tv_remote
+  select ONCE — the household's profile is the focused tile — wait a few
+  seconds, then RE-SEND the original deep link: with the profile active it
+  usually routes to the content this time. Check now_playing again and
+  report honestly. (This mirrors what play_abc_iview does internally.)
   When a SHOW PAGE did open (not just the app's home screen), it's worth
   one gamble: apple_tv_remote select — the featured/latest episode usually
   has focus — wait a few seconds, then now_playing. Playing → say what
