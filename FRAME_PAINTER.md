@@ -39,19 +39,73 @@ The key difference:
 |---|---|---|
 | TV control | Mac server (Python, `samsungtvws`) | **On-device Swift**, direct WebSocket to the TV |
 | Smart crop | On-device (Vision) — already Swift | Reused as-is |
-| AI generation | Mac server calls Gemini | Cloud proxy or BYO key (see §6) |
+| AI generation | Mac server calls Gemini | Cloud proxy or BYO key (see §7) |
 | Library | Server disk (`index.json` + JPEGs) | On-device (files + SwiftData index) |
 | Audience | Personal / sideloaded | **Public App Store release** |
 
 The Python server code is the **protocol reference** for the Swift port —
-it encodes a lot of hard-won knowledge about real Frame TVs (see §8).
+it encodes a lot of hard-won knowledge about real Frame TVs (see §9).
 
-## 3. Product spec
+## 3. Competitive landscape (App Store scan, August 2026)
 
-### 3.1 Onboarding & TV setup
+Surveyed before writing a line of code, so Frame Painter isn't rebuilding
+something that exists. Re-verify pricing/features at kickoff — this market
+moves.
+
+### Direct competitors
+
+| App | Hangs directly on the TV? | AI generation? | Price | Signal |
+|---|---|---|---|---|
+| **SmartThings** (Samsung, official) | Yes | No | Free | The baseline every Frame owner already has. Photo upload is buried in a multi-tap Art Mode flow; no smart crop, no generation. Clunky enough that a whole third-party category exists. |
+| [**Frame Crop – Art Mode**](https://apps.apple.com/us/app/frame-crop-art-mode/id6443996847) | **Yes** (Frame + Hisense CanvasTV) | No | $7.99 one-time | **The app to beat.** 4.7★ / ~500 ratings, actively updated. Auto + manual crop, batch of 10, custom mats, portrait-Frame support, connection diagnostics, and free art libraries (Smithsonian, Wikimedia, Unsplash, The MET, Art Institute, Cleveland). |
+| [**MP Art**](https://apps.apple.com/us/app/mp-art/id6757153314) | Yes | No (AI *descriptions*/narration only) | Free + $9.99/yr | New entrant (handful of ratings). 790k+ museum artworks from 5 museums, photo filters, 21 matte styles, 15 free TV syncs then subscription. |
+| [**Frame TV Pics**](https://apps.apple.com/us/app/frame-tv-pics/id6467582232) | **No** — prepares images, hands off to SmartThings | No | Free + $3.99 ad removal | 4.7★ / ~120 ratings. Mats, soft frames, signatures, "Magic Framing". Prep-only workflow is its ceiling. |
+| [**Samsung Frame Art Tool**](https://apps.apple.com/us/app/samsung-frame-art-tool/id1539969966) | No — crop/resize only, upload via SmartThings/USB | No | $3.99 IAP | 3.1★, stale since 2023. Evidence that prep-only + friction gets punished in reviews. |
+
+### Adjacent, not competing
+
+- **Web art services** ([frametvartist.com](https://www.frametvartist.com/),
+  [Art For Frame](https://artforframe.com/), Etsy sellers, NightCafe's
+  ["Frame TV art" galleries](https://creator.nightcafe.studio/gallery/free-frame-tv-art)):
+  sell or generate art *files* the user must then upload themselves. Proves
+  people pay for Frame art; none closes the loop to the TV.
+- **AI-art apps** (AI Frame, DreamFrame, etc.): generation with no Frame TV
+  integration at all.
+- **GitHub hacker projects**
+  ([jonwomack/samsung-frame-tv-art](https://github.com/jonwomack/samsung-frame-tv-art),
+  [vishwanath79/frame-ai-art](https://github.com/vishwanath79/frame-ai-art)):
+  Python scripts generating AI art and pushing it to Frames — demand for
+  exactly our AI path exists, currently served only to people who run Python.
+
+### What this means for Frame Painter
+
+1. **The open gap — and the whole positioning — is AI generation + direct
+   hang in one consumer app.** Nothing on the App Store does it (as of this
+   scan). The AI studio is the hero: lead the name-adjacent branding, the
+   screenshots, and the first-launch experience with it, not with photo
+   upload.
+2. **Photo path is table stakes, not a differentiator.** Frame Crop does it
+   well for $7.99. Ours must be at least as smooth (the saliency smart crop
+   is our edge — nobody else auto-keeps subjects in frame) and free, which
+   undercuts every paid competitor on their core feature.
+3. **Monetization fits the gap:** free photo path beats Frame Crop on price;
+   the AI subscription (§7) monetizes the thing nobody else sells.
+4. **Roadmap table stakes to match over time** (v1.x, not v1): optional
+   rendered mats (we upload `matte: "none"`; competitors' mats are popular —
+   render them into the JPEG client-side), batch upload, portrait-mounted
+   Frame support, and free public-domain art libraries (Smithsonian/MET
+   APIs) as a third content source next to Photos and AI.
+5. **Risks:** Frame Crop is one update away from bolting on AI generation,
+   and Samsung could fold generation into SmartThings (their TVs already
+   market "generative wallpaper"). Speed to TestFlight matters; so does
+   out-executing on generation quality (the tuned prompt) and crop taste.
+
+## 4. Product spec
+
+### 4.1 Onboarding & TV setup
 
 1. First launch: a short intro screen, then **Scan for TVs**.
-2. Scan finds Samsung TVs on the Wi-Fi network (see §5.1). Each result shows
+2. Scan finds Samsung TVs on the Wi-Fi network (see §6.1). Each result shows
    the TV's friendly name (strip Samsung's `[TV] ` prefix), model, and a
    **Frame badge** when `FrameTVSupport == "true"`. Non-Frame Samsungs are
    shown greyed out with "not a Frame TV" — honest, avoids bad reviews.
@@ -75,7 +129,7 @@ UX details that matter (learned the hard way):
   a saved TV stops answering, and match on MAC to update the stored IP
   automatically.
 
-### 3.2 Photo path
+### 4.2 Photo path
 
 1. **Pick any image** (PhotosPicker; also accept share-sheet / paste later).
 2. **Smart crop to 16:9**: Vision attention-based saliency places the crop
@@ -88,7 +142,7 @@ UX details that matter (learned the hard way):
    artwork.
 4. The image is saved to the in-app library automatically.
 
-### 3.3 AI generator path (port of the Art Studio)
+### 4.3 AI generator path (port of the Art Studio)
 
 1. Describe the artwork in words. Style chips (from the existing app):
    *Oil painting, Watercolor, Impressionist, Japanese woodblock, Minimal
@@ -114,7 +168,7 @@ Generation details to preserve (from `imagegen.py`):
 - When no image comes back, surface the model's text (usually a safety
   explanation) so the user knows to rephrase — don't show a generic error.
 
-### 3.4 Library
+### 4.4 Library
 
 - Grid of everything ever generated or cropped, newest first. Full-size JPEG
   + small thumbnail (~480×270) per item, plus metadata: kind
@@ -127,7 +181,7 @@ Generation details to preserve (from `imagegen.py`):
   extension comes later), indexed by SwiftData. iCloud sync of the library
   is a nice-to-have for v1.x, not v1.
 
-### 3.5 TV storage management
+### 4.5 TV storage management
 
 Port the **keep-10 pruning** policy: after each successful hang, keep only
 the 10 most recent of *our* uploads on that TV and delete older ones from
@@ -137,7 +191,7 @@ hang record even if the TV-side delete fails (TV asleep, already removed by
 hand) so dead entries don't pin forever. Make the limit user-configurable in
 settings (5–50, default 10).
 
-## 4. What Frame Painter is NOT (v1 scope cut)
+## 5. What Frame Painter is NOT (v1 scope cut)
 
 The parent project's voice remote, natural-language agent, Apple TV
 deep-linking, HomePod relay, and general TV remote control are **out of
@@ -145,7 +199,7 @@ scope**. Frame Painter does art, and does it beautifully. (A tasteful
 "switch to Art Mode / back to TV" toggle per TV is in scope — it's one
 KEY_POWER tap and completes the experience.)
 
-## 5. Architecture: on-device TV control
+## 6. Architecture: on-device TV control
 
 No server. The app implements the Samsung local API natively in Swift.
 The reference implementation is Python
@@ -153,7 +207,7 @@ The reference implementation is Python
 repo's `src/tv_controller/tv.py` and `discovery.py`. Structure the port as a
 standalone Swift package (`FrameKit`) so it's testable and reusable.
 
-### 5.1 Discovery
+### 6.1 Discovery
 
 Two-tier strategy, because **iOS restricts multicast**:
 
@@ -177,7 +231,7 @@ and read `device.name` (strip `[TV] `), `device.modelName`,
 `device.wifiMac` (for wake-on-LAN), `device.FrameTVSupport` ("true" for
 Frames), `device.TokenAuthSupport`, and `device.PowerState`.
 
-### 5.2 Connection & authentication
+### 6.2 Connection & authentication
 
 - Remote channel: `wss://<ip>:8002/api/v2/channels/samsung.remote.control?name=<base64 app name>&token=<token>`
   (self-signed cert — the URLSession/Network.framework TLS delegate must
@@ -205,7 +259,7 @@ Frames), `device.TokenAuthSupport`, and `device.PowerState`.
   - Wake a sleeping Frame with a **wake-on-LAN magic packet** to its MAC,
     then poll device info (up to ~10s) before attempting any upload.
 
-### 5.3 Art Mode upload
+### 6.3 Art Mode upload
 
 The art channel is a second WebSocket
 (`wss://<ip>:8002/api/v2/channels/com.samsung.art-app`) speaking
@@ -220,10 +274,10 @@ Non-negotiable settings proven on real hardware:
   art instead of edge-to-edge.
 - After upload, call select on the returned `content_id` so the new piece
   actually shows; **record the content_id** in the library for pruning.
-- Before uploading: wake the TV if asleep (§5.2), and hard-refuse non-Frame
+- Before uploading: wake the TV if asleep (§6.2), and hard-refuse non-Frame
   TVs with a clear message.
 
-### 5.4 Smart crop
+### 6.4 Smart crop
 
 Port `ios/TVRemote/SmartCropper.swift` from the parent repo **unchanged** as
 the starting point: normalize orientation → compute the 16:9 window →
@@ -237,7 +291,7 @@ New for Frame Painter: the saliency crop pre-positions an **interactive**
 crop view (drag to adjust, subtle grid overlay), so the user always gets the
 final say.
 
-### 5.5 App structure (suggested)
+### 6.5 App structure (suggested)
 
 ```
 FramePainter/
@@ -251,13 +305,13 @@ FramePainter/
     Photos/       (picker + crop UI — port of ArtworkSheet + SmartCropper)
     Library/      (grid, detail, re-hang — port of LibrarySheet, SwiftData)
     Settings/     (TVs, keep-N pruning, AI credits/key, help)
-  Server/         (only if the proxy in §6 is chosen: a tiny cloud function)
+  Server/         (only if the proxy in §7 is chosen: a tiny cloud function)
 ```
 
 SwiftUI, iOS 17+, Swift 5.10+, Network.framework for sockets, Vision,
 PhotosUI, SwiftData. No third-party dependencies in FrameKit if avoidable.
 
-## 6. The AI backend decision (needs a choice early)
+## 7. The AI backend decision (needs a choice early)
 
 The parent project calls Gemini from the Mac with the owner's API key. A
 public app **cannot ship an embedded API key**. Options:
@@ -276,7 +330,7 @@ Shipping both is reasonable: BYO key unlocks unlimited generation; the proxy
 serves everyone else. Keep the client-side generation code
 transport-agnostic so the two paths share everything but the URL and auth.
 
-## 7. App Store checklist
+## 8. App Store checklist
 
 - **Info.plist:** `NSLocalNetworkUsageDescription` ("Frame Painter finds and
   talks to your Samsung Frame TVs on your home network"),
@@ -290,7 +344,7 @@ transport-agnostic so the two paths share everything but the URL and auth.
   justification, or move device info to a raw socket implementation).
   Parent-repo gotcha: don't set `NSAllowsLocalNetworking` **alongside**
   `NSAllowsArbitraryLoads` — the granular key makes iOS ignore the broad one.
-- **Multicast entitlement** application for SSDP (§5.1) — start it week 1.
+- **Multicast entitlement** application for SSDP (§6.1) — start it week 1.
 - **Review notes:** reviewers won't have a Frame TV. Provide a demo video of
   scan→approve→hang, and make the app degrade gracefully with zero TVs found
   (the library and AI studio still work — generate and save without a TV).
@@ -300,7 +354,7 @@ transport-agnostic so the two paths share everything but the URL and auth.
 - Free Apple ID sideloading notes from the parent repo don't apply — this
   ships through a paid developer account, TestFlight beta first.
 
-## 8. Hard-won gotchas index (do not relearn these)
+## 9. Hard-won gotchas index (do not relearn these)
 
 All discovered on real hardware in the parent project; grep the referenced
 file in [samsung-tv-controller](https://github.com/xavierbach/samsung-tv-controller)
@@ -322,7 +376,7 @@ for context:
 | Prune only *our* recorded content_ids; store art is sacred; drop records even when TV-side delete fails | `library.py` (`record_hang`) |
 | Strip Samsung's `[TV] ` name prefix; merge re-scans by name, keep existing MAC/port | `discovery.py`, `tv.py` (`discover_and_save`) |
 
-## 9. Milestones
+## 10. Milestones
 
 - **M0 — FrameKit spike (the risk burner):** Swift package proving the full
   direct-to-TV chain on real hardware: discover → token handshake w/ Allow
@@ -340,7 +394,7 @@ for context:
   network / declined prompt / not a Frame), troubleshooting page, App Store
   assets, demo video for review, TestFlight beta → release.
 
-## 10. Success criteria for v1
+## 11. Success criteria for v1
 
 - Cold start to first artwork hung: **under 2 minutes** on a network with
   one Frame TV.
