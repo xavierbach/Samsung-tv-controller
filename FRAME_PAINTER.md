@@ -79,17 +79,32 @@ moves.
 
 ### What this means for Frame Painter
 
-1. **The open gap — and the whole positioning — is AI generation + direct
-   hang in one consumer app.** Nothing on the App Store does it (as of this
-   scan). The AI studio is the hero: lead the name-adjacent branding, the
-   screenshots, and the first-launch experience with it, not with photo
-   upload.
-2. **Photo path is table stakes, not a differentiator.** Frame Crop does it
-   well for $7.99. Ours must be at least as smooth (the saliency smart crop
-   is our edge — nobody else auto-keeps subjects in frame) and free, which
-   undercuts every paid competitor on their core feature.
-3. **Monetization fits the gap:** free photo path beats Frame Crop on price;
-   the AI subscription (§7) monetizes the thing nobody else sells.
+**Positioning decision: two co-equal pillars.** Frame Painter is the app
+where you *make* art for your Frame — from your photos or from your
+imagination — and hang it in one tap. Photos and the AI studio get equal
+billing everywhere they appear together: the home screen presents them as
+two doors of the same size (as the parent app's Art Studio already does with
+its **Imagine** / **Photos** pair), App Store screenshots alternate between
+the two, and neither is nested inside or behind the other. Neither path is
+an afterthought:
+
+1. **The photo path must *win* its crowded category, not just show up.**
+   Frame Crop does photo→TV well for $7.99, so parity isn't enough. Ours is
+   free, and it has to be the best crop in the category — the saliency smart
+   crop (nobody else auto-keeps faces and subjects in frame) plus manual
+   adjust, and a hang flow with fewer taps than SmartThings or Frame Crop.
+   If a Frame owner never touches the AI studio, the app still has to be
+   the best photo app they could have picked.
+2. **The AI studio is the open gap nobody serves.** No App Store app
+   combines in-app AI generation with direct hang (as of this scan) — it's
+   what makes Frame Painter *new* rather than another entrant, so it gets
+   the same first-class treatment: full styles UI, reference photos,
+   preview, regenerate. New users should hit both paths in onboarding
+   (hang a photo, then "now try imagining one" — or vice versa).
+3. **Monetization splits cleanly along the two pillars:** the photo path is
+   free forever (undercuts every paid competitor on their core feature);
+   the AI subscription (§7) monetizes the thing nobody else sells. Free
+   users get a full-strength app, not a crippled teaser.
 4. **Roadmap table stakes to match over time** (v1.x, not v1): optional
    rendered mats (we upload `matte: "none"`; competitors' mats are popular —
    render them into the JPEG client-side), batch upload, portrait-mounted
@@ -387,7 +402,11 @@ for context:
   smart crop with manual adjust, hang on TV, library persistence. This is a
   usable app.
 - **M2 — AI studio:** generation UI (port ArtStudioSheet UX), BYO-key path
-  first, preview, hang, library integration.
+  first, preview, hang, library integration. *M1 before M2 is build
+  sequencing only (the photo path exercises the whole TV chain with no AI
+  backend dependency) — not a priority ranking. Both pillars must be at
+  full polish before M4 ships; do not TestFlight externally with the studio
+  half-done.*
 - **M3 — Proxy + monetization:** cloud function, App Attest, IAP
   ("Frame Painter Pro"), rate limiting.
 - **M4 — Polish & ship:** empty states, error taxonomy (TV asleep / wrong
@@ -397,8 +416,13 @@ for context:
 ## 11. Success criteria for v1
 
 - Cold start to first artwork hung: **under 2 minutes** on a network with
-  one Frame TV.
-- Photo path works with **zero accounts, zero servers, zero configuration**.
+  one Frame TV — via **either pillar**: photo→crop→hang and
+  describe→generate→hang both fit inside that window.
+- Photo path works with **zero accounts, zero servers, zero configuration**,
+  and its crop is visibly better than a center crop on a portrait photo
+  (the demo test: an off-center face survives uncropped).
+- AI path: prompt to hung artwork in one screen flow, with a graceful,
+  specific message when the model declines (surface its text, per §4.3).
 - A hang succeeds on a Frame that was asleep in Art Mode when the user
   tapped the button.
 - No data leaves the phone except the AI generation request.
